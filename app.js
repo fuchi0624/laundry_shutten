@@ -113,7 +113,7 @@
   }
   // 月の売上の金額帯（円）。◎=120万円以上、○=100〜120万円、△=100万円未満
   const BANDS = [[0, 400000], [400000, 600000], [600000, 800000], [800000, 1000000], [1000000, 1200000], [1200000, 1400000], [1400000, 1600000], [1600000, null]];
-  const BASE_BAND = [5, 4, 3];   // 商圏だけで見たときの出発点（◎→120〜140万、○→100〜120万、△→80〜100万）
+  const BASE_BAND = [4, 3, 2];   // 商圏だけで見たときの基準（直営店と似た商圏→100〜120万、1つ外れる→80〜100万、それ以外→60〜80万）（2026-11 Yuta指定）
   const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `${lo / 1e4}〜${hi / 1e4}万円`; };
   const GRADES = [["◎", "月120万円以上が見込めます", "g0"], ["○", "月100万円以上が見込めます", "g1"], ["△", "月100万円に届かないおそれ", "g2"]];
   const SALES_TXT = ["120万円以上", "100万円以上", "100万円未満のおそれ"];
@@ -347,7 +347,7 @@
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
       <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
       <div class="v-nums">
-        <div><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `商圏だけなら ${bandTxt(e.band0)}`}</small></div>
+        <div><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `基準（お店の条件 ±0点） ${bandTxt(e.band0)}`}</small></div>
         <div><span class="label">来店客数の見込み</span><span class="value">${!e.lo ? "〜" + fmt(e.dayHi) : fmt(e.dayLo) + (e.dayHi ? "〜" + fmt(e.dayHi) : "")}</span><span class="unit">人／日${e.dayHi ? "" : "以上"}</span><small>客単価${fmt(P.price)}円で計算</small></div>
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
