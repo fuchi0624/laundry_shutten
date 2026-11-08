@@ -129,10 +129,16 @@
     { k: "wd", label: "洗濯乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 1], ["6台以上", 2]] },
     { k: "dry", label: "乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 0]] },
     { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, opts: [["ない", -1], ["ある", 0]] },
+    { k: "see", label: "お店の見えやすさ（角地・看板）", base: 1, opts: [["見つけにくい", -1], ["ふつう", 0], ["よく見える", 1]] },
+    { k: "rival", label: "500m以内に新しい・大きい他社", base: 0, opts: [["ない", 0], ["ある", -2]] },
+    { k: "parkEase", label: "駐車場の止めやすさ", base: 1, opts: [["止めにくい", -1], ["ふつう", 0], ["止めやすい（道から直接入れる）", 1]] },
+    { k: "big", label: "大型洗濯機（布団が洗える）", base: 1, opts: [["ない", -1], ["ある", 0]] },
+    { k: "clean", label: "クリーニング併設", base: 1, opts: [["なし", -1], ["併設", 0]] },
+    { k: "night", label: "夜の明るさ・入りやすさ", base: 1, opts: [["暗い・入りにくい", -1], ["明るく入りやすい", 0]] },
   ];
-  const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["see", "反対車線から見えやすい"]];
-  const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, see: false, median: false };
-  let S = { ...SPEC0, ...(store.get("spec3") || {}) };
+  const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["seeOpp", "反対車線から見えやすい"]];
+  const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false };
+  let S = { ...SPEC0, ...(store.get("spec4") || {}) };
   // 幹線道路沿いは3つの条件が必須（そろわなければ判定は△）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
   const specPt = (d) => d.opts[S[d.k]][1];
@@ -206,6 +212,28 @@
     if (excluded) note += `店名が「クリーニング」だけのお店${excluded}件は除いています。`;
     if (full) note += "店が多い地域のため、一部の店が出ていない可能性があります。";
     return { comps, note };
+  }
+
+  async function nearShops(lat, lon) {
+    let list = [];
+    if (USE_GOOGLE) {
+      const { Place } = await google.maps.importLibrary("places");
+      const r = await Place.searchNearby({
+        fields: ["displayName", "location"], includedTypes: ["supermarket", "drugstore", "pharmacy"],
+        locationRestriction: { center: { lat, lng: lon }, radius: 300 }, maxResultCount: 5, rankPreference: "DISTANCE", language: "ja", region: "jp",
+      });
+      list = (r.places || []).map((p) => ({ name: p.displayName, km: distKm(lat, lon, p.location.lat(), p.location.lng()) }));
+    } else {
+      const q = `[out:json][timeout:15];nwr["shop"~"^(supermarket|chemist)$"](around:300,${lat},${lon});out center tags;`;
+      const r = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q) });
+      const j = await r.json();
+      list = j.elements.filter((e) => e.tags && /supermarket|chemist/.test(e.tags.shop || "")).map((e) => {
+        const la = e.lat ?? e.center.lat, lo = e.lon ?? e.center.lon;
+        return { name: e.tags.name || "スーパー・ドラッグストア", km: distKm(lat, lon, la, lo) };
+      });
+    }
+    list = list.filter((x) => x.km <= 0.3).sort((a, b) => a.km - b.km);
+    return list.length ? { name: list[0].name, m: Math.round(list[0].km * 1000) } : { name: null };
   }
 
   async function compsOSM(lat, lon, rKm) {
@@ -381,7 +409,7 @@
   function renderSpec() {
     const box = $("#spec"); if (!box) return;
     const body = box.querySelector(".spec-body"); body.textContent = "";
-    const upd = () => { store.set("spec3", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
+    const upd = () => { store.set("spec4", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
     for (const d of SPEC_DEF) {
       const row = document.createElement("div"); row.className = "spec-row";
       row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div><b class="spec-pt"></b>`;
@@ -393,6 +421,11 @@
         row.querySelector(".seg").appendChild(b);
       });
       row.dataset.k = d.k;
+      if (d.k === "near" && cur && cur.nearAuto) {
+        const n = document.createElement("small"); n.className = "spec-auto";
+        n.textContent = cur.nearAuto.name ? `Googleマップで自動判定：${cur.nearAuto.name}（約${cur.nearAuto.m}m）` : "Googleマップで自動判定：300m以内に見つかりませんでした";
+        row.appendChild(n);
+      }
       body.appendChild(row);
       if (d.k === "road" && S.road === 1) {
         const sub = document.createElement("div"); sub.className = "spec-sub";
@@ -420,7 +453,7 @@
     const pt = specScore();
     box.querySelector(".spec-total").innerHTML = `基準から <b>${signed(pt)}</b>点`;
   }
-  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec3", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
+  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 
   // ---------------------------------------------------------------- 計算の前提
@@ -566,6 +599,10 @@
       ]);
       cres.comps.sort((a, b) => a.km - b.km);
       cur = { ...g, address: addr, cells, comps: cres.comps, searchKm };
+      // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
+      cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
+      if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
+      renderSpec();
       active = -1;
       $("#compnote").textContent = cres.note + `（半径${searchKm}kmまで検索）`;
       $("#matched").textContent = `${g.matched}（緯度 ${g.lat.toFixed(5)} / 経度 ${g.lon.toFixed(5)}）`;
