@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ランドリー出店ナビ</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest?v=1">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="出店ナビ">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+<div class="lp-bar"><div class="lp-in">
+  <img class="lp-mark" src="lp-mark.png" width="126" height="144" alt="">
+  <img class="lp-rog" src="lp-rog.png" width="549" height="72" alt="Laundry Press">
+</div></div>
+<header class="hero">
+  <div class="hero-in">
+    <div class="brand">
+      <div>
+        <p class="eyebrow">COIN LAUNDRY SALES FORECAST</p>
+        <h1>ランドリー出店ナビ</h1>
+      </div>
+    </div>
+    <p class="lead">住所を入れるだけで、出店した場合の来店客数と売上の目安、出店の判定がわかります。</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card search">
+    <form id="form" class="grid">
+      <label for="addr" class="lbl">候補地の住所</label>
+      <div class="field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>
+        <input id="addr" type="text" placeholder="住所を入力" autocomplete="street-address" enterkeyhint="search">
+      </div>
+      <div class="radius">
+        <label for="r1"><span class="ring-tag"><span class="swatch"></span>第1商圏</span>
+          <span class="ctl"><button type="button" class="step" data-t="r1" data-d="-0.25" aria-label="第1商圏を狭く">−</button><span class="num-in"><input id="r1" type="number" min="0.25" max="10" step="0.25" value="1" inputmode="decimal"><i>km</i></span><button type="button" class="step" data-t="r1" data-d="0.25" aria-label="第1商圏を広く">＋</button></span>
+        </label>
+        <label for="r2"><span class="ring-tag"><span class="swatch dash"></span>第2商圏</span>
+          <span class="ctl"><button type="button" class="step" data-t="r2" data-d="-0.25" aria-label="第2商圏を狭く">−</button><span class="num-in"><input id="r2" type="number" min="0.25" max="10" step="0.25" value="2" inputmode="decimal"><i>km</i></span><button type="button" class="step" data-t="r2" data-d="0.25" aria-label="第2商圏を広く">＋</button></span>
+        </label>
+      </div>
+      <button class="btn" id="go" type="submit">この場所を調べる</button>
+      <div id="recent" class="recent"></div>
+    </form>
+    <div class="msg" id="msg" hidden></div>
+  </section>
+
+  <div id="result" hidden>
+    <div class="phead" id="phead">
+      <div class="phead-logo"><img src="lp-mark.png" alt=""><img src="lp-rog.png" alt="Laundry Press"></div>
+      <div class="phead-title"><h2>コインランドリー出店判定レポート</h2><p id="pmeta"></p><p id="psrc"></p></div>
+      <div class="pverdict" id="pverdict"></div>
+    </div>
+    <div class="pbar"><p class="matched" id="matched"></p><button type="button" class="btn ghost" id="printBtn">A4で印刷・PDF保存</button></div>
+    <section class="card verdict" id="verdict"></section>
+    <section class="stats" id="stats"></section>
+
+    <section class="card mapcard">
+      <div class="sec-head"><h2>地図</h2><a class="link" id="gmap" target="_blank" rel="noopener">Googleマップで開く ↗</a></div>
+      <div id="map"></div>
+      <div class="legend">
+        <span><i class="dot own"></i>候補地</span>
+        <span><i class="dot"></i>他社（番号は近い順）</span>
+        <span><i class="ring"></i>第1商圏</span>
+        <span><i class="ring dash"></i>第2商圏</span>
+      </div>
+    </section>
+
+    <section class="pnear" id="pnear"></section>
+
+    <section class="plist">
+      <div class="sec-head"><h2>周辺のコインランドリー</h2><span class="sub">近い順</span></div>
+      <p class="note" id="compnote"></p>
+      <ol class="list" id="list"></ol>
+      <table class="ptable" id="ptable"></table>
+    </section>
+  </div>
+  <section class="card compare" id="compare" hidden>
+    <div class="sec-head"><h2>保存した候補地をくらべる</h2><span class="sub">この端末に保存</span></div>
+    <ol class="cmp-list" id="cmpList"></ol>
+  </section>
+  <details class="card settings" id="settings">
+    <summary><span>計算の前提を見る・変える</span><span class="sub">自社の店の実績に合わせると精度が上がります</span></summary>
+    <div class="set-body">
+      <p class="note">来店客数は「世帯数 × 来店率 × 月の利用回数」に、単身・子育て世帯の多さと、近くの他社に取られる分を反映して出しています。</p>
+      <div class="set-grid" id="setGrid"></div>
+      <div class="set-actions"><button type="button" class="btn ghost" id="setReset">初期値に戻す</button></div>
+      <div class="calib">
+        <h3>直営店の実績で合わせる</h3>
+        <p class="note">「直営店マスタ」のExcel（店舗名・住所・平均月商が入ったもの）を選ぶと、各店の人口と他社を調べて、予測が実績に一番近づく来店率を出します。ファイルはこの端末の中だけで使い、どこにも送りません。</p>
+        <label class="btn ghost" id="calibPick">Excelを選ぶ<input type="file" id="calibFile" accept=".xlsx" hidden></label>
+        <div id="calibOut"></div>
+      </div>
+    </div>
+  </details>
+
+  <footer>
+    <p>人口・世帯数: 総務省統計局「令和2年国勢調査」500mメッシュを商圏の円で按分しています。</p>
+    <p id="srcnote"></p>
+    <p>住所検索: 国土地理院</p>
+  </footer>
+</main>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="config.js?v=4"></script>
+<script src="app.js?v=2"></script>
+</body>
+</html>
