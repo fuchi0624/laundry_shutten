@@ -285,7 +285,7 @@
         this.objs.forEach((o) => o.setMap(null)); this.objs = [];
         const G = google.maps, add = (o) => this.objs.push(o);
         add(new G.Circle({ map: this.g, center: { lat, lng: lon }, radius: r1 * 1000, strokeColor: accent, strokeWeight: 3, fillColor: accent, fillOpacity: 0.08, clickable: false }));
-        add(new G.Circle({ map: this.g, center: { lat, lng: lon }, radius: r2 * 1000, strokeColor: accent, strokeWeight: 2, strokeOpacity: 0.9, fillOpacity: 0, clickable: false }));
+        add(new G.Circle({ map: this.g, center: { lat, lng: lon }, radius: r2 * 1000, strokeColor: accent, strokeWeight: 2, strokeOpacity: 0.6, fillOpacity: 0, clickable: false }));
         add(new G.Marker({ map: this.g, position: { lat, lng: lon }, zIndex: 999, title: "候補地",
           icon: { path: "M0,-11 L11,0 L0,11 L-11,0 Z", fillColor: "#e2621b", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, scale: 1.2 } }));
         cur.comps.forEach((c, i) => {
@@ -302,7 +302,7 @@
       } else {
         this.layer.clearLayers();
         L.circle([lat, lon], { radius: r1 * 1000, color: accent, weight: 3, fillOpacity: 0.08 }).addTo(this.layer);
-        L.circle([lat, lon], { radius: r2 * 1000, color: accent, weight: 2, dashArray: "8 6", fill: false }).addTo(this.layer);
+        L.circle([lat, lon], { radius: r2 * 1000, color: accent, weight: 2, opacity: 0.6, fill: false }).addTo(this.layer);
         L.marker([lat, lon], { icon: L.divIcon({ className: "", html: '<i class="pin-own"></i>', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(this.layer);
         cur.comps.forEach((c, i) => {
           const cls = "pin" + (c.km <= r2 ? "" : " out") + (i === active ? " on" : "");
