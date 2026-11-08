@@ -375,8 +375,12 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .tab{font:inherit;display:grid;justify-items:center;gap:0;padding:10px 6px;border:0;border-radius:13px;background:transparent;color:var(--muted);font-weight:800;font-size:.95rem;cursor:pointer;line-height:1.3}
 .tab b{font-size:.8rem}
 .tab small{font-weight:500;font-size:.68rem}
-.tab.on{background:var(--accent);color:var(--on-accent)}
+.tab.t1{color:var(--rival)}.tab.t2{color:var(--accent)}
+.tab.t1.on{background:var(--rival);color:#fff}.tab.t2.on{background:var(--accent);color:var(--on-accent)}
 .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.panel{display:grid;gap:16px}
+.panel{display:grid;gap:16px;padding:12px;border-radius:22px;border-top:6px solid var(--pc)}
+.panel.p1{--pc:var(--rival);background:var(--rival-soft)}
+.panel.p2{--pc:var(--accent);background:var(--accent-soft)}
+.panel-tag{margin:0;justify-self:start;padding:4px 14px;border-radius:99px;background:var(--pc);color:#fff;font-weight:800;font-size:.85rem;letter-spacing:.04em}
 .panel[hidden]{display:none}
-@media print{.tabs,#goTab2,#panel2{display:none !important}#panel1{display:contents !important}#panel1>*{min-height:0;overflow:hidden;break-inside:avoid}}
+@media print{.tabs,#goTab2,#panel2,.panel-tag{display:none !important}#panel1{display:contents !important}#panel1>*{min-height:0;overflow:hidden;break-inside:avoid}}

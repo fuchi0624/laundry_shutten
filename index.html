@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 <div class="lp-bar"><div class="lp-in">
@@ -62,10 +62,11 @@
     </div>
     <div class="pbar"><p class="matched" id="matched"></p><button type="button" class="btn ghost" id="printBtn">A4で印刷・PDF保存</button></div>
     <nav class="tabs" role="tablist" aria-label="表示の切り替え">
-      <button type="button" role="tab" class="tab on" id="tabBtn1" aria-selected="true" data-tab="1"><b>①</b>商圏を調べる<small>世帯数・地図・競合店</small></button>
-      <button type="button" role="tab" class="tab" id="tabBtn2" aria-selected="false" data-tab="2"><b>②</b>売上予測<small>お店の条件を入れて予測</small></button>
+      <button type="button" role="tab" class="tab t1 on" id="tabBtn1" aria-selected="true" data-tab="1">商圏を調べる<small>世帯数・地図・競合店</small></button>
+      <button type="button" role="tab" class="tab t2" id="tabBtn2" aria-selected="false" data-tab="2">売上予測<small>お店の条件を入れて予測</small></button>
     </nav>
-    <div class="panel" id="panel1" role="tabpanel">
+    <div class="panel p1" id="panel1" role="tabpanel">
+      <p class="panel-tag">商圏を調べる</p>
     <section class="stats" id="stats"></section>
 
     <section class="card mapcard">
@@ -87,9 +88,10 @@
       <ol class="list" id="list"></ol>
       <table class="ptable" id="ptable"></table>
     </section>
-      <button type="button" class="btn predict" id="goTab2">② 売上予測へ進む</button>
+      <button type="button" class="btn predict" id="goTab2">売上予測へ進む →</button>
     </div>
-    <div class="panel" id="panel2" role="tabpanel" hidden>
+    <div class="panel p2" id="panel2" role="tabpanel" hidden>
+      <p class="panel-tag">売上予測</p>
     <section class="card spec" id="spec">
       <div class="spec-head"><h3>お店の条件を入れる</h3><span class="spec-total"></span></div>
       <p class="note">出店予定のお店の条件を選んで、下の「売上予測を見る」を押してください。道・駐車場・広さ・台数などを選ぶと、点数で判定を上げ下げします。幹線道路沿いは3つの必須条件がそろわないと、売上の見込みは80〜100万円までになります。直営店の標準的なつくり（基準）を0点として、良ければプラス、悪ければマイナスで数えます。合計2点ごとに、売上の見込み（20万円きざみ）を1段階上げ下げします。</p>
