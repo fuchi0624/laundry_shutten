@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div class="lp-bar"><div class="lp-in">
@@ -64,7 +64,7 @@
     <section class="card verdict" id="verdict"></section>
     <section class="card spec" id="spec">
       <div class="spec-head"><h3>お店の条件</h3><span class="spec-total"></span></div>
-      <p class="note">道・駐車場・広さ・台数などを選ぶと、点数で判定を上げ下げします。9点以上で1段階上げ、6〜8点はそのまま、4〜5点で1段階下げ、3点以下で2段階下げます。</p>
+      <p class="note">道・駐車場・広さ・台数などを選ぶと、点数で判定を上げ下げします。幹線道路沿いは3つの必須条件がそろわないと△になります。9点以上で1段階上げ、6〜8点はそのまま、4〜5点で1段階下げ、3点以下で2段階下げます。</p>
       <div class="spec-body"></div>
       <button type="button" class="btn ghost" id="specReset">最初の状態に戻す</button>
     </section>
@@ -112,6 +112,6 @@
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

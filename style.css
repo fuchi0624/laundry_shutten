@@ -360,3 +360,4 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .spec-sub p{margin:0;font-size:.76rem;color:var(--muted)}
 .spec-sub label{display:flex;gap:8px;align-items:center;min-height:32px}
 .spec-sub input{width:20px;height:20px}
+.spec-sub.ng{outline:2px solid #b8473a}.spec-sub.ng p{color:#b8473a;font-weight:700}
