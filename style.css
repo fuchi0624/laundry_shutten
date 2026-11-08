@@ -368,6 +368,7 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .v-cond li{display:grid;grid-template-columns:22px 1fr auto;column-gap:8px;align-items:baseline;padding:8px 10px;border-radius:12px;background:var(--surface-2);font-size:.84rem}
 .v-cond .mk{grid-row:span 2;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:.75rem;font-weight:700;background:#e3f3ea;color:#2e8b57;align-self:center}
 .v-cond li.ng .mk{background:#fbf0d6;color:#a26b00}
+.v-cond li.up .mk{background:#fde6d6;color:#c2541a}
 .v-cond b{font-family:var(--f-num);font-size:1rem;text-align:right}
 .v-cond small{grid-column:2 / 4;font-size:.74rem;color:var(--muted)}
 .v-cond li.ng small{color:#a26b00;font-weight:700}

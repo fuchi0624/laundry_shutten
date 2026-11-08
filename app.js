@@ -84,7 +84,7 @@
 
   // 直営店と似た条件かどうかを3つの点で調べる（商圏の設定に関係なく1km・2kmで見る）
   function conditions() {
-    const h1 = sumWithin(1).hh, h2 = sumWithin(2).hh;
+    const s1 = sumWithin(1), h1 = s1.hh, h2 = sumWithin(2).hh;
     const c1 = cur.comps.filter((c) => c.km <= 1 && !c.closed).length;
     const range = (v, [lo, hi]) => (v < lo ? -1 : v > hi ? 1 : 0);
     return [
@@ -94,16 +94,19 @@
         low: "直営店のどの店より少なめです", high: "直営店のどの店より多めです" },
       { label: "1km以内の他社", value: `${c1}店`, pos: c1 > REF.comp1 ? 1 : 0,
         high: "直営店のどの店より多めです" },
+      // マンションが多い地域（1km以内の単身世帯が5割以上）は1段階上げる（2026-11-08 直営店14店の答え合わせから）
+      { label: "1km以内の単身世帯の割合", value: `${Math.round(s1.single / Math.max(1, s1.hh) * 100)}%`, pos: 0, extra: true,
+        up: s1.single / Math.max(1, s1.hh) >= APT_RATIO },
     ];
   }
   function estimate() {
-    const cond = conditions(), out = cond.filter((c) => c.pos !== 0).length;
+    const cond = conditions(), out = cond.filter((c) => !c.extra && c.pos !== 0).length, apt = cond.some((c) => c.extra && c.up);
     // 世帯数が直営店のどの店より少ない場所は、売上が伸びにくいおそれ（世帯がいちばん少ない直営店は100万円未満）
     const fewHH = cond.slice(0, 2).some((c) => c.pos < 0);
     const base = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
     const pt = specScore(), roadNG = S.road === 1 && !roadOK();
     // 商圏の判定で出発点の金額帯を決め、お店の条件4点ごとに1つ上下させる（2026-11-08 直営店14店の答え合わせで、お店側の点を半分の重みに）
-    const band0 = BASE_BAND[base];
+    const band0 = BASE_BAND[base] + (apt ? 1 : 0);
     let band = Math.min(BANDS.length - 1, Math.max(0, band0 + Math.trunc(pt / STEP_PT)));
     if (roadNG) band = Math.min(band, 3);
     const grade = gradeOf(band);
@@ -113,7 +116,8 @@
   }
   // 月の売上の金額帯（円）。◎=120万円以上、○=100〜120万円、△=100万円未満
   const BANDS = [[0, 400000], [400000, 600000], [600000, 800000], [800000, 1000000], [1000000, 1200000], [1200000, 1400000], [1400000, 1600000], [1600000, null]];
-  const BASE_BAND = [6, 5, 4];   // 商圏だけで見たときの基準（直営店と似た商圏→140〜160万、1つ外れる→120〜140万、それ以外→100〜120万）
+  const BASE_BAND = [5, 4, 3];   // 商圏だけで見たときの基準（直営店と似た商圏→120〜140万、1つ外れる→100〜120万、それ以外→80〜100万）。マンションが多い地域は＋1段階
+  const APT_RATIO = 0.5;
   const STEP_PT = 4;             // お店の条件 4点で1段階
   const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `${lo / 1e4}〜${hi / 1e4}万円`; };
   // マーク: ★=120万円以上、◎=100万円以上、○=80万円以上、△=80万円未満（2026-11 Yuta指定）
@@ -362,11 +366,12 @@
       <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
-      const li = document.createElement("li"); li.className = c.pos ? "ng" : "ok";
-      li.innerHTML = `<span class="mk">${c.pos ? "!" : "✓"}</span><span class="lb"></span><b></b><small></small>`;
+      const li = document.createElement("li"); li.className = c.extra ? (c.up ? "up" : "ok") : c.pos ? "ng" : "ok";
+      li.innerHTML = `<span class="mk">${c.extra ? (c.up ? "↑" : "–") : c.pos ? "!" : "✓"}</span><span class="lb"></span><b></b><small></small>`;
       li.querySelector(".lb").textContent = c.label;
       li.querySelector("b").textContent = c.value;
-      li.querySelector("small").textContent = c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内";
+      li.querySelector("small").textContent = c.extra ? (c.up ? "マンションが多い地域なので、基準を1段階上げました" : "5割未満（一軒家が多め）なので、基準はそのまま")
+        : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内";
       ul.appendChild(li);
     }
     $("#saveBtn").addEventListener("click", saveCurrent);
