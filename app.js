@@ -409,7 +409,21 @@
     });
   }
 
+  // 客単価は 800円・900円（基準）・1000円 から選ぶ
+  const PRICES = [800, 900, 1000];
+  function renderPrice() {
+    const seg = $("#priceSeg"); if (!seg) return;
+    seg.textContent = "";
+    for (const v of PRICES) {
+      const b = document.createElement("button"); b.type = "button";
+      b.textContent = v === 900 ? `${fmt(v)}円（基準）` : `${fmt(v)}円`;
+      b.className = P.price === v ? "on" : "";
+      b.onclick = () => { P.price = v; store.set("params", P); renderPrice(); renderSettings(); if (cur) { renderVerdict(); renderPrint(); } };
+      seg.appendChild(b);
+    }
+  }
   function renderSpec() {
+    renderPrice();
     const box = $("#spec"); if (!box) return;
     const body = box.querySelector(".spec-body"); body.textContent = "";
     const upd = () => { store.set("spec4", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
@@ -479,12 +493,13 @@
         if (!(v >= 0)) return;
         P[k] = v; store.set("params", P);
         l.classList.toggle("changed", v !== PARAM0[k]);
+        renderPrice();
         if (cur) { renderVerdict(); renderPrint(); }
       });
       grid.appendChild(l);
     }
   }
-  $("#setReset").addEventListener("click", () => { P = { ...PARAM0 }; store.set("params", P); renderSettings(); if (cur) { renderVerdict(); renderPrint(); } });
+  $("#setReset").addEventListener("click", () => { P = { ...PARAM0 }; store.set("params", P); renderSettings(); renderPrice(); if (cur) { renderVerdict(); renderPrint(); } });
 
   let moreOpen = false;
   function renderList() {

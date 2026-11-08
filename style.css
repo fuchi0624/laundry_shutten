@@ -371,3 +371,5 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .list .more summary::after{content:"＋";color:var(--accent);font-weight:800}
 .list .more details[open] summary::after{content:"－"}
 .list .more ol{margin:0;padding:0 8px 8px}
+.spec-price{display:grid;gap:6px;padding-top:12px;border-top:1px dashed var(--line)}
+.spec-price .seg{grid-column:auto}
