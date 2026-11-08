@@ -469,6 +469,18 @@
     const pt = specScore();
     box.querySelector(".spec-total").innerHTML = `基準から <b>${signed(pt)}</b>点`;
   }
+  // ① 商圏を調べる ／ ② 売上予測 の切り替え
+  function showTab(n) {
+    for (const i of [1, 2]) {
+      $("#panel" + i).hidden = i !== n;
+      const b = $("#tabBtn" + i); b.classList.toggle("on", i === n); b.setAttribute("aria-selected", i === n);
+    }
+    if (n === 1) window.dispatchEvent(new Event("resize"));
+    $(".tabs").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  $("#tabBtn1").addEventListener("click", () => showTab(1));
+  $("#tabBtn2").addEventListener("click", () => showTab(2));
+  $("#goTab2").addEventListener("click", () => showTab(2));
   $("#predictBtn").addEventListener("click", () => {
     if (!cur) return;
     cur.shown = true; renderVerdict(); renderPrint();
@@ -634,6 +646,7 @@
       cres.comps.sort((a, b) => a.km - b.km);
       cur = { ...g, address: addr, cells, comps: cres.comps, searchKm, shown: false };
       moreOpen = false;
+      for (const i of [1, 2]) { $("#panel" + i).hidden = i !== 1; $("#tabBtn" + i).classList.toggle("on", i === 1); $("#tabBtn" + i).setAttribute("aria-selected", i === 1); }
       // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
       cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
       if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
