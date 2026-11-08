@@ -29,21 +29,33 @@ a{color:var(--accent-deep)}
 .lp-mark{height:44px;width:auto;flex:none}
 .lp-rog{height:22px;width:auto;max-width:calc(100% - 50px);object-fit:contain;margin-bottom:3px}
 
-/* ---- 上の帯（黒×オレンジ。方眼＝地図、円＝商圏、ひし形＝候補地） */
-.hero{position:relative;overflow:hidden;color:#fff;background-color:#141010;
-  background-image:radial-gradient(120% 90% at 100% 0%,rgba(226,98,27,.38) 0%,rgba(226,98,27,0) 55%),
-                   linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
-  background-size:auto,26px 26px,26px 26px;border-bottom:3px solid var(--accent)}
-.hero::before{content:"";position:absolute;right:-84px;top:-96px;width:230px;height:230px;border-radius:50%;
-  border:1.5px solid rgba(255,134,64,.75);box-shadow:0 0 0 40px rgba(255,134,64,.05),0 0 0 41.5px rgba(255,134,64,.35);pointer-events:none}
-.hero::after{content:"";position:absolute;right:26px;top:26px;width:12px;height:12px;background:var(--accent);transform:rotate(45deg);border-radius:2px;
-  box-shadow:0 0 0 5px rgba(226,98,27,.25),0 0 18px 4px rgba(226,98,27,.55);pointer-events:none}
+/* ---- 上の帯（宇宙: 星空の中に、細い輪をもつ光る星＝候補地と商圏） */
+.hero{position:relative;overflow:hidden;color:#fff;background-color:#0c0909;
+  background-image:
+    radial-gradient(1px 1px at 18px 24px,rgba(255,255,255,.85) 50%,transparent 51%),
+    radial-gradient(1px 1px at 92px 70px,rgba(255,255,255,.55) 50%,transparent 51%),
+    radial-gradient(1.4px 1.4px at 140px 18px,rgba(255,226,196,.9) 50%,transparent 51%),
+    radial-gradient(1px 1px at 52px 112px,rgba(255,255,255,.4) 50%,transparent 51%),
+    radial-gradient(1px 1px at 160px 96px,rgba(255,255,255,.6) 50%,transparent 51%),
+    radial-gradient(1px 1px at 118px 130px,rgba(255,200,160,.5) 50%,transparent 51%),
+    radial-gradient(90% 70% at 88% 18%,rgba(226,98,27,.22) 0%,rgba(226,98,27,0) 60%),
+    radial-gradient(70% 60% at 0% 100%,rgba(120,60,160,.12) 0%,rgba(120,60,160,0) 70%);
+  background-size:170px 140px,170px 140px,170px 140px,170px 140px,170px 140px,170px 140px,auto,auto;
+  border-bottom:1px solid rgba(255,138,69,.55);box-shadow:0 1px 14px rgba(226,98,27,.35)}
+.cosmos{position:absolute;right:-44px;top:-40px;width:210px;height:175px;pointer-events:none}
+.cosmos .tw circle{animation:tw 3.6s ease-in-out infinite}
+.cosmos .tw circle:nth-child(2n){animation-delay:-1.2s}
+.cosmos .tw circle:nth-child(3n){animation-delay:-2.3s}
+.cosmos .spark{transform-box:fill-box;transform-origin:center;animation:sp 4.2s ease-in-out infinite}
+.cosmos .spark.s2{animation-delay:-2s}
+@keyframes tw{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes sp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+@media (prefers-reduced-motion:reduce){.cosmos *{animation:none!important}}
 .hero .hero-in{position:relative;z-index:1}
 .hero .eyebrow{display:flex;align-items:center;gap:8px;color:#ff8a45;opacity:1;font-weight:700}
 .hero .eyebrow::before{content:"";width:18px;height:2px;background:currentColor}
-.hero h1{font-size:clamp(1.55rem,7.6vw,2.05rem);letter-spacing:.06em;color:#fff}
-.hero h1::after{content:"";display:block;width:48px;height:4px;margin-top:8px;border-radius:2px;background:linear-gradient(90deg,#ff8a45,#e2621b)}
+.hero h1{font-size:clamp(1.55rem,7.6vw,2.05rem);letter-spacing:.06em;color:#fff;text-shadow:0 0 18px rgba(255,138,69,.35)}
+.hero h1::after{content:"";display:block;width:64px;height:2px;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,#ff8a45,rgba(255,138,69,0));box-shadow:0 0 8px rgba(255,138,69,.8)}
 .hero .lead{color:#cdbfb4;opacity:1}
 .hero-in{max-width:720px;margin:0 auto;padding-block:20px 64px;display:grid;gap:10px}
 .brand{display:flex;align-items:center;gap:12px}
