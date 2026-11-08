@@ -42,7 +42,10 @@ a{color:var(--accent-deep)}
     radial-gradient(70% 60% at 0% 100%,rgba(120,60,160,.12) 0%,rgba(120,60,160,0) 70%);
   background-size:170px 140px,170px 140px,170px 140px,170px 140px,170px 140px,170px 140px,auto,auto;
   border-bottom:1px solid rgba(255,138,69,.55);box-shadow:0 1px 14px rgba(226,98,27,.35)}
-.cosmos{position:absolute;right:-44px;top:-40px;width:210px;height:175px;pointer-events:none}
+.cosmos{position:absolute;right:-20px;top:-10px;width:240px;height:200px;pointer-events:none;z-index:0}
+/* 右上: 細く光る輪＝商圏、光るひし形＝候補地 */
+.hero::before{content:"";position:absolute;right:-90px;top:-100px;width:236px;height:236px;border-radius:50%;pointer-events:none;border:1px solid rgba(255,170,115,.85);box-shadow:0 0 10px rgba(255,138,69,.55),inset 0 0 10px rgba(255,138,69,.35);outline:1px solid rgba(255,170,115,.32);outline-offset:38px}
+.hero::after{content:"";position:absolute;right:28px;top:28px;width:10px;height:10px;background:#ffb27a;transform:rotate(45deg);border-radius:1px;pointer-events:none;box-shadow:0 0 0 4px rgba(255,138,69,.18),0 0 14px 3px rgba(255,138,69,.7),0 0 34px 8px rgba(226,98,27,.35)}
 .cosmos .tw circle{animation:tw 3.6s ease-in-out infinite}
 .cosmos .tw circle:nth-child(2n){animation-delay:-1.2s}
 .cosmos .tw circle:nth-child(3n){animation-delay:-2.3s}
