@@ -486,10 +486,22 @@
   }
   $("#setReset").addEventListener("click", () => { P = { ...PARAM0 }; store.set("params", P); renderSettings(); if (cur) { renderVerdict(); renderPrint(); } });
 
+  let moreOpen = false;
   function renderList() {
     const [r1, r2] = radii(), ol = $("#list");
     ol.textContent = "";
     if (!cur.comps.length) { const li = document.createElement("li"); li.className = "muted"; li.textContent = "見つかりませんでした。"; ol.appendChild(li); return; }
+    // 商圏外のお店は「その他のコインランドリー」にまとめて、タップで開く
+    const nOut = cur.comps.filter((c) => c.km > r2).length;
+    let outOl = null;
+    if (nOut) {
+      const more = document.createElement("li"); more.className = "more";
+      more.innerHTML = `<details${moreOpen ? " open" : ""}><summary>その他のコインランドリー（第2商圏の外・${nOut}店）</summary><ol class="list"></ol></details>`;
+      const det = more.querySelector("details");
+      det.addEventListener("toggle", () => { moreOpen = det.open; });
+      outOl = more.querySelector("ol");
+      ol.appendChild(more);
+    }
     cur.comps.forEach((c, i) => {
       const ring = c.km <= r1 ? ["第1商圏", ""] : c.km <= r2 ? ["第2商圏", "r2"] : ["商圏外", "out"];
       const li = document.createElement("li");
@@ -507,13 +519,14 @@
       if (c.unsure) { const s = document.createElement("span"); s.className = "chip out"; s.textContent = "要確認（店名にランドリーなし）"; chips.appendChild(s); }
       if (c.closed) { const s = document.createElement("span"); s.className = "chip warn"; s.textContent = "臨時休業中"; chips.appendChild(s); }
       li.querySelector("a").href = c.url || `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}`;
-      ol.appendChild(li);
+      if (ring[1] === "out" && outOl) outOl.appendChild(li);
+      else ol.insertBefore(li, ol.querySelector(".more"));
     });
   }
   function select(i, scroll) {
     active = i; map.draw(false); map.focus(cur.comps[i]);
     document.querySelectorAll(".item").forEach((li) => li.classList.toggle("active", +li.dataset.i === i));
-    if (scroll) { const el = document.querySelector(`.item[data-i="${i}"]`); el && el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    if (scroll) { const el = document.querySelector(`.item[data-i="${i}"]`); const det = el && el.closest("details"); if (det && !det.open) det.open = true; el && el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
   }
   function refresh(fit) {
     if (!cur) return;
@@ -607,6 +620,7 @@
       ]);
       cres.comps.sort((a, b) => a.km - b.km);
       cur = { ...g, address: addr, cells, comps: cres.comps, searchKm, shown: false };
+      moreOpen = false;
       // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
       cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
       if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
