@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div class="lp-bar"><div class="lp-in">
@@ -28,7 +28,7 @@
         <h1>ランドリー出店ナビ</h1>
       </div>
     </div>
-    <p class="lead">住所を入れるだけで、出店した場合の来店客数と売上の目安、出店の判定がわかります。</p>
+    <p class="lead">住所を入れるだけで、出店した場合の売上と来店客数の見込みがわかります。直営店の売上実績をもとに算出しています。</p>
   </div>
 </header>
 
@@ -89,17 +89,12 @@
     <ol class="cmp-list" id="cmpList"></ol>
   </section>
   <details class="card settings" id="settings">
-    <summary><span>計算の前提を見る・変える</span><span class="sub">自社の店の実績に合わせると精度が上がります</span></summary>
+    <summary><span>売上の見込みの出し方</span><span class="sub">ランドリープレス直営店の売上実績をもとに算出しています</span></summary>
     <div class="set-body">
-      <p class="note">来店客数は「世帯数 × 来店率 × 月の利用回数」に、単身・子育て世帯の多さと、近くの他社に取られる分を反映して出しています。</p>
+      <p class="note">売上の見込みは、開業2年以上の直営店の売上実績をもとに出しています。直営店の売上は、まわりの世帯数や他社の数による差が小さかったため、「直営店と似た条件の場所なら、直営店と同じくらい売れる」という考え方です。</p>
+      <p class="note">候補地の1km・2km以内の世帯数と1km以内の他社の数が直営店の範囲に入っていれば ◎（月120万円以上が見込める）、1つ外れれば ○（月100万円以上）、2つ以上外れるか世帯数が直営店より少なければ △（100万円に届かないおそれ）です。開業1年目・2年目の目安も、直営店の売上の伸び方から出しています。</p>
       <div class="set-grid" id="setGrid"></div>
       <div class="set-actions"><button type="button" class="btn ghost" id="setReset">初期値に戻す</button></div>
-      <div class="calib">
-        <h3>直営店の実績で合わせる</h3>
-        <p class="note">「直営店マスタ」のExcel（店舗名・住所・平均月商が入ったもの）を選ぶと、各店の人口と他社を調べて、予測が実績に一番近づく来店率を出します。ファイルはこの端末の中だけで使い、どこにも送りません。</p>
-        <label class="btn ghost" id="calibPick">Excelを選ぶ<input type="file" id="calibFile" accept=".xlsx" hidden></label>
-        <div id="calibOut"></div>
-      </div>
     </div>
   </details>
 
@@ -111,6 +106,6 @@
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

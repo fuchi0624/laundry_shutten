@@ -66,77 +66,49 @@
     }
     return { pop: t[0], hh: t[1], single: t[2], kids: t[3], senior: t[4] };
   }
-  // ---------------------------------------------------------------- 来店客数の見込み
-  // 計算の前提（画面の「計算の前提」で変えられる。この端末に保存）
-  const PARAM_DEF = [
-    ["rate1", "来店率（第1商圏）", "%", 5.5, 0.1],
-    ["rate2", "来店率（第2商圏）", "%", 5, 0.1],
-    ["freq1", "月の利用回数（第1商圏）", "回", 2, 0.1],
-    ["freq2", "月の利用回数（第2商圏）", "回", 1, 0.1],
-    ["wSingle", "単身世帯の使いやすさ", "倍", 1.5, 0.1],
-    ["wKids", "子育て世帯の使いやすさ", "倍", 1.5, 0.1],
-    ["price", "客単価", "円", 900, 50],
-    ["good", "「おすすめ」の目安（月の売上）", "万円以上", 150, 5],
-    ["ok", "「検討」の目安（月の売上）", "万円以上", 80, 5],
-  ];
+  // ---------------------------------------------------------------- 売上の見込み（直営店の実績ベース）
+  // ランドリープレス直営店（開業2年以上）の売上実績から求めた目安。
+  // 直営店では、世帯数・他社の数・広さ・台数などで売上の差はほとんど説明できなかったため、
+  // 「直営店と似た条件の場所なら、直営店と同じくらい売れる」という考え方で出している。
+  const REF = {
+    low: 1100000, high: 1700000,    // 直営店の大半が入る幅
+    ramp: [0.8, 0.92],              // 開業1年目・2年目は3年目の約80%・約92%
+    // 直営店の条件の範囲（候補地を中心にした円の中の数）
+    hh1: [4000, 45000],             // 1km以内の世帯数
+    hh2: [10000, 161000],           // 2km以内の世帯数
+    comp1: 23,                      // 1km以内の他社の数（これより多い直営店はない）
+  };
+  const PARAM_DEF = [["price", "客単価", "円", 900, 50]];
   const PARAM0 = Object.fromEntries(PARAM_DEF.map((d) => [d[0], d[3]]));
   let P = { ...PARAM0, ...(store.get("params") || {}) };
 
-  // 世帯数を「使いやすさ」で重み付け（単身・子育て世帯は多めに数える）
-  const weightedHH = (hh, single, kids) => single * P.wSingle + kids * P.wKids + Math.max(0, hh - single - kids);
-
-  // 来店客数の見込み。商圏の中を細かい点に分け、点ごとに
-  //   自店の取り分 = 1 ÷ (1 + Σ 他社の重み ×(自店までの距離 ÷ 他社までの距離)²)
-  // で近くの他社に取られる分を差し引く（近い店ほどお客さんを取りやすい）。
-  // 商圏ごとの「重み付き世帯数」と、そのうち自店が取れる分（来店率・回数を掛ける前）
-  function capture(site, r1, r2) {
-    const lo = Math.min(r1, r2);
-    const kx = 111.32 * Math.cos(site.lat * Math.PI / 180), ky = 110.57;
-    // 要確認の店は半分、臨時休業中の店は数えない
-    const rivals = site.comps.filter((c) => !c.closed).map((c) => ({ x: (c.lon - site.lon) * kx, y: (c.lat - site.lat) * ky, w: c.unsure ? 0.5 : 1 }));
-    const MIN = 0.2; // 0.2km より近い距離は 0.2km とみなす
-    return [[0, r1], [lo, r2]].map(([rIn, rOut]) => {
-      let market = 0, own = 0;
-      for (const c of site.cells) {
-        const [, hh, single, kids] = c.v, per = weightedHH(hh, single, kids) / c.d.length;
-        if (!per) continue;
-        for (let k = 0; k < c.d.length; k++) {
-          const d = c.d[k]; if (d <= rIn || d > rOut) continue;
-          const x = c.xy[2 * k], y = c.xy[2 * k + 1], d0 = Math.max(d, MIN) ** 2;
-          let sum = 0;
-          for (const r of rivals) sum += r.w * d0 / Math.max(Math.hypot(x - r.x, y - r.y), MIN) ** 2;
-          market += per; own += per / (1 + sum);
-        }
-      }
-      return { market, own };
-    });
+  // 直営店と似た条件かどうかを3つの点で調べる（商圏の設定に関係なく1km・2kmで見る）
+  function conditions() {
+    const h1 = sumWithin(1).hh, h2 = sumWithin(2).hh;
+    const c1 = cur.comps.filter((c) => c.km <= 1 && !c.closed).length;
+    const range = (v, [lo, hi]) => (v < lo ? -1 : v > hi ? 1 : 0);
+    return [
+      { label: "1km以内の世帯数", value: `${fmt(h1)}世帯`, pos: range(h1, REF.hh1),
+        low: "直営店のどの店より少なめです", high: "直営店のどの店より多めです" },
+      { label: "2km以内の世帯数", value: `${fmt(h2)}世帯`, pos: range(h2, REF.hh2),
+        low: "直営店のどの店より少なめです", high: "直営店のどの店より多めです" },
+      { label: "1km以内の他社", value: `${c1}店`, pos: c1 > REF.comp1 ? 1 : 0,
+        high: "直営店のどの店より多めです" },
+    ];
   }
-  // 重み付き世帯 → 月の来店客数
-  const visits = (cap) => [cap[0].own * P.rate1 / 100 * P.freq1, cap[1].own * P.rate2 / 100 * P.freq2];
   function estimate() {
-    const [r1, r2] = radii(), cap = capture(cur, r1, r2), v = visits(cap);
-    const rings = [{ own: v[0] }, { own: v[1] }];
-    const month = v[0] + v[1], market = cap[0].market * P.rate1 / 100 * P.freq1 + cap[1].market * P.rate2 / 100 * P.freq2;
-    const sales = month * P.price;
-    const grade = sales >= P.good * 1e4 ? 0 : sales >= P.ok * 1e4 ? 1 : 2;
-    return { rings, month, day: month / 30, sales, share: market ? month / market : 1, grade };
+    const cond = conditions(), out = cond.filter((c) => c.pos !== 0).length;
+    // 世帯数が直営店のどの店より少ない場所は、売上が伸びにくいおそれ（世帯がいちばん少ない直営店は100万円未満）
+    const fewHH = cond.slice(0, 2).some((c) => c.pos < 0);
+    const grade = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
+    const sales = GOAL[grade], month = sales / P.price;
+    return { cond, grade, sales, month, day: month / 30 };
   }
-  // 直営店13店の実績: 開業1年目は3年目の約80%、2年目は約92%
-  const RAMP = [0.8, 0.92];
-  const GRADES = [["◎", "おすすめ", "g0"], ["○", "検討の余地あり", "g1"], ["△", "慎重に", "g2"]];
+  // 判定の線: ◎ 月120万円以上、○ 月100万円以上、△ 100万円に届かないおそれ
+  const GOAL = [1200000, 1000000, 1000000];
+  const GRADES = [["◎", "月120万円以上が見込めます", "g0"], ["○", "月100万円以上が見込めます", "g1"], ["△", "月100万円に届かないおそれ", "g2"]];
+  const SALES_TXT = ["120万円以上", "100万円以上", "100万円未満のおそれ"];
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
-
-  // 判定の理由（短い文で3つまで）
-  function reasons(e) {
-    const [r1] = radii(), s = sumWithin(r1), out = [];
-    const n1 = cur.comps.filter((c) => c.km <= r1 && !c.closed).length;
-    const ratio = s.hh ? (s.single + s.kids) / s.hh : 0;
-    out.push(`第1商圏の世帯数は${fmt(s.hh)}世帯${s.hh >= 5000 ? "で多め" : s.hh >= 2000 ? "で標準的" : "で少なめ"}です。`);
-    out.push(`単身・子育て世帯が${Math.round(ratio * 100)}%${ratio >= 0.5 ? "と多く、利用が見込めます" : ratio >= 0.4 ? "で平均的です" : "と少なめです"}。`);
-    out.push(n1 ? `第1商圏に他社が${n1}店あり、お客さんの取り分は約${Math.round(e.share * 100)}%の見込みです。`
-      : `第1商圏に他社が見つからず、お客さんの取り分は約${Math.round(e.share * 100)}%の見込みです。`);
-    return out;
-  }
 
   const radii = () => [
     Math.min(10, Math.max(0.25, +$("#r1").value || CFG.r1 || 1)),
@@ -311,27 +283,34 @@
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
       <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
       <div class="v-nums">
-        <div><span class="label">来店客数の見込み</span><span class="value">${fmt(e.day)}</span><span class="unit">人／日</span><small>月 ${fmt(e.month)}人</small></div>
-        <div><span class="label">月の売上の目安</span><span class="value">${man(e.sales)}</span><span class="unit">万円</span><small>年 ${man(e.sales * 12)}万円</small></div>
+        <div><span class="label">月の売上の見込み</span><span class="value">${man(e.sales)}</span><span class="unit">万円${e.grade === 2 ? "未満のおそれ" : "以上"}</span><small>${e.grade === 0 ? `似た条件の直営店は月${man(REF.low)}〜${man(REF.high)}万円くらい` : "直営店にない条件があります"}</small></div>
+        <div><span class="label">来店客数の見込み</span><span class="value">${fmt(e.day)}</span><span class="unit">人／日${e.grade === 2 ? "未満" : "以上"}</span><small>月 ${fmt(e.month)}人（客単価${fmt(P.price)}円）</small></div>
       </div>
-      <ul class="v-why"></ul>
-      <p class="v-ramp">開業1年目は約<b>${man(e.sales * RAMP[0])}</b>万円／月、2年目は約<b>${man(e.sales * RAMP[1])}</b>万円／月から（直営店の伸び方より）</p>
-      <p class="v-note">軌道に乗った後（3年目）の目安です。第1商圏から月${fmt(e.rings[0].own)}人・第2商圏から月${fmt(e.rings[1].own)}人の見込み。客単価${fmt(P.price)}円で計算。前提はページ下の「計算の前提」で変えられます。</p>`;
-    const ul = box.querySelector(".v-why");
-    reasons(e).forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+      <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
+      <ul class="v-cond"></ul>
+      <p class="v-note">${e.grade === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.grade === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
+    const ul = box.querySelector(".v-cond");
+    for (const c of e.cond) {
+      const li = document.createElement("li"); li.className = c.pos ? "ng" : "ok";
+      li.innerHTML = `<span class="mk">${c.pos ? "!" : "✓"}</span><span class="lb"></span><b></b><small></small>`;
+      li.querySelector(".lb").textContent = c.label;
+      li.querySelector("b").textContent = c.value;
+      li.querySelector("small").textContent = c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内";
+      ul.appendChild(li);
+    }
     $("#saveBtn").addEventListener("click", saveCurrent);
-    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>来店 1日約<strong>${fmt(e.day)}</strong>人　売上 月約<strong>${man(e.sales)}</strong>万円</p></div>`;
+    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出）</p></div>`;
   }
 
   // ---------------------------------------------------------------- 候補地の保存と比較
   const savedKey = () => { const [r1, r2] = radii(); return `${cur.address}|${r1}|${r2}`; };
   const isSaved = () => (store.get("saved") || []).some((x) => x.key === savedKey());
   function saveCurrent() {
-    const [r1, r2] = radii(), e = cur.est, s = sumWithin(r1);
+    const [r1, r2] = radii(), e = cur.est;
     const list = (store.get("saved") || []).filter((x) => x.key !== savedKey());
     list.unshift({
-      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, day: e.day, sales: e.sales, share: e.share,
-      hh1: s.hh, n1: cur.comps.filter((c) => c.km <= r1).length, n2: cur.comps.filter((c) => c.km > Math.min(r1, r2) && c.km <= r2).length,
+      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, day: e.day, sales: e.sales,
+      hh1: sumWithin(1).hh, hh2: sumWithin(2).hh, c1: cur.comps.filter((c) => c.km <= 1 && !c.closed).length,
       at: Date.now(),
     });
     store.set("saved", list.slice(0, 20));
@@ -342,19 +321,18 @@
     const list = store.get("saved") || [], ol = $("#cmpList");
     $("#compare").hidden = !list.length;
     ol.textContent = "";
-    const best = Math.max(...list.map((x) => x.sales));
     list.forEach((x, i) => {
       const [g, gl, cls] = GRADES[x.grade];
       const li = document.createElement("li");
-      li.className = "cmp" + (list.length > 1 && x.sales === best ? " best" : "");
+      li.className = "cmp";
       li.innerHTML = `<div class="cmp-head"><b class="cmp-grade ${cls}">${g}</b><button type="button" class="cmp-name"></button>
         <button type="button" class="cmp-del" aria-label="削除">×</button></div>
         <dl class="cmp-nums">
-          <div><dt>来店／日</dt><dd>${fmt(x.day)}<small>人</small></dd></div>
-          <div><dt>売上／月</dt><dd>${man(x.sales)}<small>万円</small></dd></div>
-          <div><dt>第1商圏の世帯</dt><dd>${fmt(x.hh1)}</dd></div>
-          <div><dt>他社 第1／第2</dt><dd>${x.n1}<small>／</small>${x.n2}<small>店</small></dd></div>
-        </dl><p class="cmp-sub">${x.r1}km・${x.r2}km で計算${list.length > 1 && x.sales === best ? "　｜　この中で一番売上が見込めます" : ""}</p>`;
+          <div><dt>売上／月</dt><dd><small>${SALES_TXT[x.grade]}</small></dd></div>
+          <div><dt>1km以内の世帯</dt><dd>${fmt(x.hh1)}</dd></div>
+          <div><dt>2km以内の世帯</dt><dd>${fmt(x.hh2 || 0)}</dd></div>
+          <div><dt>1km以内の他社</dt><dd>${x.c1 ?? x.n1}<small>店</small></dd></div>
+        </dl><p class="cmp-sub">${gl}</p>`;
       li.querySelector(".cmp-name").textContent = x.address;
       li.querySelector(".cmp-name").onclick = () => {
         $("#addr").value = x.address; $("#r1").value = x.r1; $("#r2").value = x.r2;
@@ -389,126 +367,6 @@
     }
   }
   $("#setReset").addEventListener("click", () => { P = { ...PARAM0 }; store.set("params", P); renderSettings(); if (cur) { renderVerdict(); renderPrint(); } });
-
-  // ---------------------------------------------------------------- 直営店の実績で合わせる
-  // Excel（.xlsx）を外部の部品なしで読む。ファイルは端末の中だけで使い、どこにも送らない。
-  async function readXlsx(buf) {
-    const dv = new DataView(buf), u8 = new Uint8Array(buf), dec = new TextDecoder();
-    let e = buf.byteLength - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
-    if (e < 0) throw new Error("Excelファイルとして読めませんでした。");
-    const files = {}; let p = dv.getUint32(e + 16, true);
-    for (let i = 0, n = dv.getUint16(e + 10, true); i < n; i++) {
-      const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true);
-      const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
-      files[dec.decode(u8.subarray(p + 46, p + 46 + nl))] = { method, size, off };
-      p += 46 + nl + xl + cl;
-    }
-    async function text(name) {
-      const f = files[name]; if (!f) return null;
-      const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
-      const raw = u8.subarray(start, start + f.size);
-      if (f.method === 0) return dec.decode(raw);
-      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-      return await new Response(stream).text();
-    }
-    const xml = (t) => new DOMParser().parseFromString(t, "application/xml");
-    const ss = [...xml((await text("xl/sharedStrings.xml")) || "<sst/>").getElementsByTagName("si")].map((si) => [...si.getElementsByTagName("t")].map((t) => t.textContent).join(""));
-    const wb = xml(await text("xl/workbook.xml")), rels = xml(await text("xl/_rels/workbook.xml.rels"));
-    const sheets = [...wb.getElementsByTagName("sheet")];
-    const sh = sheets.find((x) => /マスタ/.test(x.getAttribute("name"))) || sheets[0];
-    const rid = sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
-    const target = [...rels.getElementsByTagName("Relationship")].find((r) => r.getAttribute("Id") === rid).getAttribute("Target").replace(/^\/?(xl\/)?/, "xl/");
-    const rows = [];
-    for (const c of xml(await text(target)).getElementsByTagName("c")) {
-      const [, col, row] = c.getAttribute("r").match(/([A-Z]+)(\d+)/), t = c.getAttribute("t");
-      const v = c.getElementsByTagName("v")[0], is = c.getElementsByTagName("t")[0];
-      let val = t === "s" ? ss[+v.textContent] : t === "inlineStr" ? is && is.textContent : v ? v.textContent : null;
-      if (val != null && t !== "s" && t !== "inlineStr" && t !== "str" && val !== "" && !isNaN(+val)) val = +val;
-      (rows[+row] = rows[+row] || {})[col] = val;
-    }
-    return rows;
-  }
-  // 開業年月 → 開業からの月数（"2018/03" や Excel の日付どちらでも）
-  function monthsOpen(v) {
-    let y, m;
-    if (typeof v === "number") { const d = new Date(Date.UTC(1899, 11, 30) + v * 864e5); y = d.getUTCFullYear(); m = d.getUTCMonth() + 1; }
-    else { const r = String(v || "").match(/(\d{4})\D+(\d{1,2})/); if (!r) return null; y = +r[1]; m = +r[2]; }
-    const now = new Date(); return (now.getFullYear() - y) * 12 + now.getMonth() + 1 - m;
-  }
-  let calib = null;
-  async function runCalib(file) {
-    const out = $("#calibOut"), btn = $("#calibPick");
-    const say = (t, err) => { out.innerHTML = ""; const p = document.createElement("p"); p.className = "note" + (err ? " err" : ""); p.textContent = t; out.appendChild(p); };
-    btn.classList.add("busy");
-    try {
-      const rows = await readXlsx(await file.arrayBuffer());
-      const stores = rows.filter((r) => r && typeof r.C === "number" && r.D && /店/.test(r.A || ""))
-        .map((r) => ({ name: String(r.A).replace(/Laundry Press\s*/i, ""), address: String(r.D).replace(/〒\d{3}-?\d{4}\s*/, "").trim(), sales: r.C, months: monthsOpen(r.B) }));
-      if (!stores.length) throw new Error("店舗名・住所・平均月商が入った行が見つかりませんでした。");
-      const used = stores.filter((s) => s.months == null || s.months >= 24), skipped = stores.length - used.length;
-      const [r1, r2] = radii(), searchKm = Math.max(r2, 3);
-      await mapReady;
-      for (let i = 0; i < used.length; i++) {
-        const s = used[i];
-        say(`${i + 1}／${used.length}店目（${s.name}）の人口と他社を調べています…`);
-        try {
-          const g = await geocode(s.address.replace(/\s.*$/, ""));
-          const [cells, cres] = await Promise.all([buildCells(g.lat, g.lon), (USE_GOOGLE ? compsGoogle : compsOSM)(g.lat, g.lon, searchKm).catch(() => ({ comps: [] }))]);
-          // 自分の店は他社から除く（候補地から50m以内の店）
-          const comps = cres.comps.filter((c) => c.km > 0.05);
-          Object.assign(s, { lat: g.lat, lon: g.lon, cells, comps, n1: comps.filter((c) => c.km <= r1).length, n2: comps.filter((c) => c.km > Math.min(r1, r2) && c.km <= r2).length, n3: comps.filter((c) => c.km <= 3).length });
-          s.cap = capture(s, r1, r2);
-        } catch (e) { s.err = true; }
-      }
-      const ok = used.filter((s) => s.cap);
-      if (ok.length < 3) throw new Error("調べられた店が少なすぎました。通信環境を確認して、もう一度お試しください。");
-      // 第1商圏・第2商圏の来店率をそれぞれ、予測と実績のずれ（割合）が一番小さくなるように決める
-      const x = (s) => [s.cap[0].own / 100 * P.freq1 * P.price, s.cap[1].own / 100 * P.freq2 * P.price];
-      const pred = (s, r) => { const [a, b] = x(s); return a * r[0] + b * r[1]; };
-      const err = (r) => ok.reduce((a, s) => a + Math.abs(pred(s, r) - s.sales) / s.sales, 0) / ok.length;
-      let A = 0, B = 0, C = 0, D = 0, E = 0;
-      for (const s of ok) { const [a, b] = x(s), w = 1 / s.sales ** 2; A += w * a * a; B += w * a * b; C += w * b * b; D += w * a * s.sales; E += w * b * s.sales; }
-      const det = A * C - B * B;
-      let fit = det > 0 ? [(D * C - B * E) / det, (A * E - B * D) / det] : null;
-      if (!fit || fit[0] < 0 || fit[1] < 0) { // どちらかがマイナスになるときは、今の比率のまま倍率だけ合わせる
-        const k = (D * P.rate1 + E * P.rate2) / (A * P.rate1 ** 2 + 2 * B * P.rate1 * P.rate2 + C * P.rate2 ** 2);
-        fit = [P.rate1 * k, P.rate2 * k];
-      }
-      fit = fit.map((v) => Math.round(v * 100) / 100);
-      const cur0 = [P.rate1, P.rate2];
-      calib = { r1, r2, ok, skipped, fit, before: err(cur0), after: err(fit), rate1: fit[0], rate2: fit[1] };
-      renderCalib(pred);
-    } catch (e) {
-      say(e.message || "うまく読み込めませんでした。", true);
-    } finally { btn.classList.remove("busy"); $("#calibFile").value = ""; }
-  }
-  function renderCalib(pred) {
-    const c = calib, out = $("#calibOut");
-    out.innerHTML = `<div class="calib-sum">
-        <p>開業2年以上の<b>${c.ok.length}店</b>で合わせました${c.skipped ? `（開業2年未満の${c.skipped}店は、まだ売上が伸びている途中なので除外）` : ""}。</p>
-        <p>予測と実績のずれ（平均）: <b>${Math.round(c.before * 100)}%</b> → <b class="good">${Math.round(c.after * 100)}%</b></p>
-        <p>来店率: 第1商圏 ${P.rate1}% → <b>${c.rate1}%</b>、第2商圏 ${P.rate2}% → <b>${c.rate2}%</b>（第${c.r1}km・${c.r2}kmで計算）</p>
-      </div>
-      <div class="calib-table"><table><thead><tr><th>店</th><th>他社<br><small>第1</small></th><th>他社<br><small>第2</small></th><th>他社<br><small>3km内</small></th><th>実績</th><th>予測</th><th>ずれ</th></tr></thead><tbody></tbody></table></div>
-      <div class="set-actions"><button type="button" class="btn" id="calibApply">この来店率を使う</button></div>
-      <p class="note">「この来店率を使う」は、この端末だけに反映されます。社員みんなの初期値にするときは、この画面のスクリーンショットを送ってください。</p>`;
-    const tb = out.querySelector("tbody");
-    for (const s of [...c.ok].sort((a, b) => b.sales - a.sales)) {
-      const pv = pred(s, c.fit), gap = (pv - s.sales) / s.sales, tr = document.createElement("tr");
-      [s.name, s.n1 + "店", s.n2 + "店", s.n3 + "店", man(s.sales) + "万", man(pv) + "万", (gap > 0 ? "+" : "") + Math.round(gap * 100) + "%"].forEach((v, i) => {
-        const td = document.createElement("td"); td.textContent = v;
-        if (i === 6 && Math.abs(gap) > 0.3) td.className = "far";
-        tr.appendChild(td);
-      });
-      tb.appendChild(tr);
-    }
-    $("#calibApply").onclick = () => {
-      P.rate1 = c.rate1; P.rate2 = c.rate2; store.set("params", P); renderSettings();
-      if (cur) { renderVerdict(); renderPrint(); }
-      $("#calibApply").textContent = "反映しました ✓";
-    };
-  }
-  $("#calibFile").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) runCalib(f); });
 
   function renderList() {
     const [r1, r2] = radii(), ol = $("#list");
@@ -550,7 +408,7 @@
   function renderPrint() {
     const [r1, r2] = radii(), d = new Date();
     $("#pmeta").textContent = `候補地: ${cur.address}　｜　第1商圏 ${r1}km・第2商圏 ${r2}km　｜　作成日 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-    $("#psrc").textContent = `来店客数: 世帯数×来店率(${P.rate1}%・${P.rate2}%)×月の利用(${P.freq1}回・${P.freq2}回)、単身${P.wSingle}倍・子育て${P.wKids}倍、他社との距離で按分、客単価${fmt(P.price)}円　｜　人口・世帯数: 令和2年国勢調査500mメッシュ　｜　` + $("#srcnote").textContent;
+    $("#psrc").textContent = `売上の見込み: ランドリープレス直営店の売上実績をもとに算出（客単価${fmt(P.price)}円）　｜　人口・世帯数: 令和2年国勢調査500mメッシュ　｜　` + $("#srcnote").textContent;
     const ring = (c) => (c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外");
     const label = (c) => c.name + (c.unsure ? "（要確認）" : "") + (c.closed ? "（臨時休業中）" : "");
     // 近い順に3店を写真つきで

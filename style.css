@@ -328,3 +328,15 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .calib-table th small{font-weight:400}
 .calib-table td.far{color:#b8473a;font-weight:700}
 @media print{.v-ramp{display:none}}
+
+/* ---- 直営店との比較（3つの条件） */
+.v-cond{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.v-cond li{display:grid;grid-template-columns:22px 1fr auto;column-gap:8px;align-items:baseline;padding:8px 10px;border-radius:12px;background:var(--surface-2);font-size:.84rem}
+.v-cond .mk{grid-row:span 2;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:.75rem;font-weight:700;background:#e3f3ea;color:#2e8b57;align-self:center}
+.v-cond li.ng .mk{background:#fbf0d6;color:#a26b00}
+.v-cond b{font-family:var(--f-num);font-size:1rem;text-align:right}
+.v-cond small{grid-column:2 / 4;font-size:.74rem;color:var(--muted)}
+.v-cond li.ng small{color:#a26b00;font-weight:700}
+@media (prefers-color-scheme:dark){.v-cond .mk{background:#183326;color:#5cc48a}.v-cond li.ng .mk{background:#3a2d10;color:#f0b33c}.v-cond li.ng small{color:#f0b33c}}
+.settings .set-body .note+.note{margin-top:-4px}
+
