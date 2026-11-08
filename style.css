@@ -29,12 +29,22 @@ a{color:var(--accent-deep)}
 .lp-mark{height:44px;width:auto;flex:none}
 .lp-rog{height:22px;width:auto;max-width:calc(100% - 50px);object-fit:contain;margin-bottom:3px}
 
-/* ---- 上の帯 */
-.hero{background:var(--accent);color:var(--on-accent);
-  background-image:radial-gradient(circle at 92% -10%,rgba(255,255,255,.22) 0 22%,transparent 22.5%),
-                   radial-gradient(circle at 92% -10%,transparent 0 34%,rgba(255,255,255,.14) 34.3% 34.8%,transparent 35%),
-                   radial-gradient(circle at 92% -10%,transparent 0 47%,rgba(255,255,255,.10) 47.3% 47.8%,transparent 48%)}
-@media (prefers-color-scheme:dark){.hero{background-color:#c4541a;color:#fff}}
+/* ---- 上の帯（黒×オレンジ。方眼＝地図、円＝商圏、ひし形＝候補地） */
+.hero{position:relative;overflow:hidden;color:#fff;background-color:#141010;
+  background-image:radial-gradient(120% 90% at 100% 0%,rgba(226,98,27,.38) 0%,rgba(226,98,27,0) 55%),
+                   linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:auto,26px 26px,26px 26px;border-bottom:3px solid var(--accent)}
+.hero::before{content:"";position:absolute;right:-84px;top:-96px;width:230px;height:230px;border-radius:50%;
+  border:1.5px solid rgba(255,134,64,.75);box-shadow:0 0 0 40px rgba(255,134,64,.05),0 0 0 41.5px rgba(255,134,64,.35);pointer-events:none}
+.hero::after{content:"";position:absolute;right:26px;top:26px;width:12px;height:12px;background:var(--accent);transform:rotate(45deg);border-radius:2px;
+  box-shadow:0 0 0 5px rgba(226,98,27,.25),0 0 18px 4px rgba(226,98,27,.55);pointer-events:none}
+.hero .hero-in{position:relative;z-index:1}
+.hero .eyebrow{display:flex;align-items:center;gap:8px;color:#ff8a45;opacity:1;font-weight:700}
+.hero .eyebrow::before{content:"";width:18px;height:2px;background:currentColor}
+.hero h1{font-size:clamp(1.55rem,7.6vw,2.05rem);letter-spacing:.06em;color:#fff}
+.hero h1::after{content:"";display:block;width:48px;height:4px;margin-top:8px;border-radius:2px;background:linear-gradient(90deg,#ff8a45,#e2621b)}
+.hero .lead{color:#cdbfb4;opacity:1}
 .hero-in{max-width:720px;margin:0 auto;padding-block:20px 64px;display:grid;gap:10px}
 .brand{display:flex;align-items:center;gap:12px}
 .logo{width:42px;height:42px;flex:none}
