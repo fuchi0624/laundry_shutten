@@ -114,30 +114,25 @@
   // ---------------------------------------------------------------- お店の条件（点数）
   // 道・駐車場・広さ・台数・近くの集客施設を点数にして、商圏からの判定を上げ下げする。
   // 点数の配分は社内の考え方（生活道路沿いが良い、幹線道路は条件つき）をもとにした目安。
+  // 基準（直営店の標準的なつくり）を0点とし、良ければプラス、悪ければマイナス（2026-11 社内基準）
   const SPEC_DEF = [
-    { k: "road", label: "道", opts: [["生活道路沿い", 3], ["幹線道路沿い", 1]] },
-    { k: "park", label: "駐車場", opts: [["なし", 0], ["1〜2台", 1], ["3台以上", 2]] },
-    { k: "tsubo", label: "広さ", opts: [["15坪未満", 0], ["15〜25坪", 1], ["25〜35坪", 2], ["35坪以上", 3]] },
-    { k: "wd", label: "洗濯乾燥機", opts: [["3台以下", 0], ["4台", 1], ["5台以上", 2]] },
-    { k: "near", label: "300m以内のスーパー・ドラッグストア", opts: [["ない", 0], ["ある", 1]] },
+    { k: "road", label: "道", base: 0, opts: [["生活道路沿い", 0], ["幹線道路沿い", -2]] },
+    { k: "park", label: "駐車場", base: 2, opts: [["なし", -2], ["1〜3台", -1], ["4〜5台", 0], ["6〜8台", 1], ["9〜10台", 2], ["11台以上", 3]] },
+    { k: "tsubo", label: "広さ", base: 4, opts: [["10坪以下", -4], ["10〜15坪", -3], ["15〜20坪", -2], ["20〜25坪", -1], ["25〜30坪", 0], ["30〜35坪", 1], ["35坪以上", 2]] },
+    { k: "wd", label: "洗濯乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 1], ["6台以上", 2]] },
+    { k: "dry", label: "乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 0]] },
+    { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, opts: [["ない", -1], ["ある", 0]] },
   ];
   const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["see", "反対車線から見えやすい"]];
-  const SPEC0 = { road: 0, park: 1, tsubo: 2, wd: 1, near: 1, inout: false, see: false, median: false };
-  let S = { ...SPEC0, ...(store.get("spec2") || {}) };
-  const SPEC_MAX = SPEC_DEF.reduce((a, d) => a + Math.max(...d.opts.map((o) => o[1])), 0);
+  const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, see: false, median: false };
+  let S = { ...SPEC0, ...(store.get("spec3") || {}) };
   // 幹線道路沿いは3つの条件が必須（そろわなければ判定は△）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
-  function specScore() {
-    let pt = 0;
-    for (const d of SPEC_DEF) {
-      let v = d.opts[S[d.k]][1];
-      if (d.k === "road" && S.road === 1 && !roadOK()) v = 0;
-      pt += v;
-    }
-    return pt;
-  }
-  // 9点以上で1段階上げ、6〜8点はそのまま、4〜5点で1段階下げ、3点以下で2段階下げ
-  const specShift = (pt) => (pt >= 9 ? -1 : pt >= 6 ? 0 : pt >= 4 ? 1 : 2);
+  const specPt = (d) => d.opts[S[d.k]][1];
+  const specScore = () => SPEC_DEF.reduce((a, d) => a + specPt(d), 0);
+  const signed = (v) => (v > 0 ? "+" + v : v < 0 ? "−" + -v : "±0");
+  // +3点以上で1段階上げ、−2〜+2点はそのまま、−3〜−5点で1段階下げ、−6点以下で2段階下げ
+  const specShift = (pt) => (pt >= 3 ? -1 : pt >= -2 ? 0 : pt >= -5 ? 1 : 2);
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
 
   const radii = () => [
@@ -318,7 +313,7 @@
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <ul class="v-cond"></ul>
-      <p class="v-spec">お店の条件 <b>${e.pt}</b>点／${SPEC_MAX}点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため△にしました" : e.grade < e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から1段階上げました" : e.grade > e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から" + (e.grade - e.base) + "段階下げました" : "→ 判定はそのまま"}<small>下の「お店の条件」で変えられます</small></p>
+      <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため△にしました" : e.grade < e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から1段階上げました" : e.grade > e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から" + (e.grade - e.base) + "段階下げました" : "→ 判定はそのまま"}<small>下の「お店の条件」で変えられます</small></p>
       <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
@@ -330,7 +325,7 @@
       ul.appendChild(li);
     }
     $("#saveBtn").addEventListener("click", saveCurrent);
-    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出・お店の条件${e.pt}点／${SPEC_MAX}点）</p></div>`;
+    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出・お店の条件 基準から${signed(e.pt)}点）</p></div>`;
   }
 
   // ---------------------------------------------------------------- 候補地の保存と比較
@@ -340,7 +335,7 @@
     const [r1, r2] = radii(), e = cur.est;
     const list = (store.get("saved") || []).filter((x) => x.key !== savedKey());
     list.unshift({
-      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, pt: e.pt, day: e.day, sales: e.sales,
+      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, pt: e.pt, v: 3, day: e.day, sales: e.sales,
       hh1: sumWithin(1).hh, hh2: sumWithin(2).hh, c1: cur.comps.filter((c) => c.km <= 1 && !c.closed).length,
       at: Date.now(),
     });
@@ -363,7 +358,7 @@
           <div><dt>1km以内の世帯</dt><dd>${fmt(x.hh1)}</dd></div>
           <div><dt>2km以内の世帯</dt><dd>${fmt(x.hh2 || 0)}</dd></div>
           <div><dt>1km以内の他社</dt><dd>${x.c1 ?? x.n1}<small>店</small></dd></div>
-          ${x.pt != null ? `<div><dt>お店の条件</dt><dd>${x.pt}<small>点</small></dd></div>` : ""}
+          ${x.pt != null && x.v === 3 ? `<div><dt>お店の条件</dt><dd>${signed(x.pt)}<small>点</small></dd></div>` : ""}
         </dl><p class="cmp-sub">${gl}</p>`;
       li.querySelector(".cmp-name").textContent = x.address;
       li.querySelector(".cmp-name").onclick = () => {
@@ -381,13 +376,13 @@
   function renderSpec() {
     const box = $("#spec"); if (!box) return;
     const body = box.querySelector(".spec-body"); body.textContent = "";
-    const upd = () => { store.set("spec2", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
+    const upd = () => { store.set("spec3", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
     for (const d of SPEC_DEF) {
       const row = document.createElement("div"); row.className = "spec-row";
       row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div><b class="spec-pt"></b>`;
       row.querySelector(".spec-lb").textContent = d.label;
       d.opts.forEach(([t, v], i) => {
-        const b = document.createElement("button"); b.type = "button"; b.textContent = `${t}`;
+        const b = document.createElement("button"); b.type = "button"; b.textContent = v === 0 ? `${t}（基準）` : t;
         b.className = S[d.k] === i ? "on" : "";
         b.onclick = () => { S[d.k] = i; renderSpec(); upd(); };
         row.querySelector(".seg").appendChild(b);
@@ -415,14 +410,12 @@
     const box = $("#spec"); if (!box) return;
     for (const row of box.querySelectorAll(".spec-row")) {
       const d = SPEC_DEF.find((x) => x.k === row.dataset.k);
-      let v = d.opts[S[d.k]][1];
-      if (d.k === "road" && S.road === 1 && !roadOK()) v = 0;
-      row.querySelector(".spec-pt").textContent = `${v}点`;
+      row.querySelector(".spec-pt").textContent = `${signed(specPt(d))}点`;
     }
     const pt = specScore();
-    box.querySelector(".spec-total").innerHTML = `合計 <b>${pt}</b>点／${SPEC_MAX}点`;
+    box.querySelector(".spec-total").innerHTML = `基準から <b>${signed(pt)}</b>点`;
   }
-  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec2", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
+  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec3", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 
   // ---------------------------------------------------------------- 計算の前提
