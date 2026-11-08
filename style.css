@@ -24,10 +24,10 @@ a{color:var(--accent-deep)}
 .gutter,.hero-in,.wrap,.lp-in{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
 
 /* ---- ランドリープレスのロゴ帯 */
-.lp-bar{background:#fff;border-bottom:3px solid #eb6d00}
-.lp-in{max-width:720px;margin:0 auto;padding-block:max(10px,calc(env(safe-area-inset-top,0px) + 6px)) 10px;display:flex;align-items:flex-end;gap:10px}
-.lp-mark{height:44px;width:auto;flex:none}
-.lp-rog{height:22px;width:auto;max-width:calc(100% - 50px);object-fit:contain;margin-bottom:3px}
+.lp-bar{background:#0c0909;border-bottom:1px solid rgba(255,255,255,.08)}
+.lp-in{max-width:720px;margin:0 auto;padding-block:max(10px,calc(env(safe-area-inset-top,0px) + 6px)) 6px;display:flex;align-items:center;gap:8px}
+.lp-mark{height:26px;width:auto;flex:none;filter:brightness(0) invert(1)}
+.lp-rog{height:13px;width:auto;max-width:calc(100% - 50px);object-fit:contain}
 
 /* ---- 上の帯（宇宙: 星空の中に、細い輪をもつ光る星＝候補地と商圏） */
 .hero{position:relative;overflow:hidden;color:#fff;background-color:#0c0909;
