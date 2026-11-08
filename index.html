@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <div class="lp-bar"><div class="lp-in">
@@ -61,13 +61,6 @@
       <div class="pverdict" id="pverdict"></div>
     </div>
     <div class="pbar"><p class="matched" id="matched"></p><button type="button" class="btn ghost" id="printBtn">A4で印刷・PDF保存</button></div>
-    <section class="card verdict" id="verdict"></section>
-    <section class="card spec" id="spec">
-      <div class="spec-head"><h3>お店の条件</h3><span class="spec-total"></span></div>
-      <p class="note">道・駐車場・広さ・台数などを選ぶと、点数で判定を上げ下げします。幹線道路沿いは3つの必須条件がそろわないと△になります。直営店の標準的なつくり（基準）を0点として、良ければプラス、悪ければマイナスで数えます。合計2点ごとに、売上の見込み（20万円きざみ）を1段階上げ下げします。</p>
-      <div class="spec-body"></div>
-      <button type="button" class="btn ghost" id="specReset">最初の状態に戻す</button>
-    </section>
     <section class="stats" id="stats"></section>
 
     <section class="card mapcard">
@@ -89,6 +82,14 @@
       <ol class="list" id="list"></ol>
       <table class="ptable" id="ptable"></table>
     </section>
+    <section class="card spec" id="spec">
+      <div class="spec-head"><h3>お店の条件を入れる</h3><span class="spec-total"></span></div>
+      <p class="note">出店予定のお店の条件を選んで、下の「売上予測を見る」を押してください。道・駐車場・広さ・台数などを選ぶと、点数で判定を上げ下げします。幹線道路沿いは3つの必須条件がそろわないと△になります。直営店の標準的なつくり（基準）を0点として、良ければプラス、悪ければマイナスで数えます。合計2点ごとに、売上の見込み（20万円きざみ）を1段階上げ下げします。</p>
+      <div class="spec-body"></div>
+      <button type="button" class="btn ghost" id="specReset">最初の状態に戻す</button>
+    </section>
+    <button type="button" class="btn predict" id="predictBtn">売上予測を見る</button>
+    <section class="card verdict" id="verdict" hidden></section>
   </div>
   <section class="card compare" id="compare" hidden>
     <div class="sec-head"><h2>保存した候補地をくらべる</h2><span class="sub">この端末に保存</span></div>
@@ -112,6 +113,6 @@
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

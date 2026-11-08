@@ -130,7 +130,7 @@
     { k: "dry", label: "乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 0]] },
     { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, opts: [["ない", -1], ["ある", 0]] },
     { k: "see", label: "お店の見えやすさ（角地・看板）", base: 1, opts: [["見つけにくい", -1], ["ふつう", 0], ["よく見える", 1]] },
-    { k: "rival", label: "500m以内に新しい・大きい他社", base: 0, opts: [["ない", 0], ["ある", -2]] },
+    { k: "rival", label: "500m以内に競合店（大型店や新しい店舗）", base: 0, opts: [["ない", 0], ["ある", -2]] },
     { k: "parkEase", label: "駐車場の止めやすさ", base: 1, opts: [["止めにくい", -1], ["ふつう", 0], ["止めやすい（道から直接入れる）", 1]] },
     { k: "big", label: "大型洗濯機（布団が洗える）", base: 1, opts: [["ない", -1], ["ある", 0]] },
     { k: "clean", label: "クリーニング併設", base: 1, opts: [["なし", -1], ["併設", 0]] },
@@ -337,6 +337,9 @@
     const e = estimate(), [g, gl, cls] = GRADES[e.grade];
     cur.est = e;
     const box = $("#verdict");
+    // 売上予測は「売上予測を見る」を押してから出す
+    box.hidden = !cur.shown;
+    if (!cur.shown) { $("#pverdict").innerHTML = ""; return; }
     box.className = "card verdict " + cls;
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
       <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
@@ -346,7 +349,7 @@
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <ul class="v-cond"></ul>
-      <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため100万円未満にしました" : e.band > e.band0 ? "→ 売上の見込みを" + (e.band - e.band0) + "段階上げました" : e.band < e.band0 ? "→ 売上の見込みを" + (e.band0 - e.band) + "段階下げました" : "→ 売上の見込みはそのまま"}<small>下の「お店の条件」で変えられます</small></p>
+      <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため100万円未満にしました" : e.band > e.band0 ? "→ 売上の見込みを" + (e.band - e.band0) + "段階上げました" : e.band < e.band0 ? "→ 売上の見込みを" + (e.band0 - e.band) + "段階下げました" : "→ 売上の見込みはそのまま"}<small>上の「お店の条件」で変えられます</small></p>
       <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
@@ -400,7 +403,7 @@
       };
       li.querySelector(".cmp-del").onclick = () => {
         store.set("saved", (store.get("saved") || []).filter((y) => y.key !== x.key));
-        renderCompare(); if (cur) $("#saveBtn").textContent = isSaved() ? "保存済み ✓" : "この候補地を保存";
+        renderCompare(); if (cur && $("#saveBtn")) $("#saveBtn").textContent = isSaved() ? "保存済み ✓" : "この候補地を保存";
       };
       ol.appendChild(li);
     });
@@ -453,6 +456,11 @@
     const pt = specScore();
     box.querySelector(".spec-total").innerHTML = `基準から <b>${signed(pt)}</b>点`;
   }
+  $("#predictBtn").addEventListener("click", () => {
+    if (!cur) return;
+    cur.shown = true; renderVerdict(); renderPrint();
+    $("#verdict").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 
@@ -598,7 +606,7 @@
         (USE_GOOGLE ? compsGoogle : compsOSM)(g.lat, g.lon, searchKm).catch((e) => ({ comps: [], note: "他社店舗の検索に失敗しました。時間をおいてもう一度お試しください。" })),
       ]);
       cres.comps.sort((a, b) => a.km - b.km);
-      cur = { ...g, address: addr, cells, comps: cres.comps, searchKm };
+      cur = { ...g, address: addr, cells, comps: cres.comps, searchKm, shown: false };
       // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
       cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
       if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
