@@ -456,7 +456,7 @@
           const [cells, cres] = await Promise.all([buildCells(g.lat, g.lon), (USE_GOOGLE ? compsGoogle : compsOSM)(g.lat, g.lon, searchKm).catch(() => ({ comps: [] }))]);
           // 自分の店は他社から除く（候補地から50m以内の店）
           const comps = cres.comps.filter((c) => c.km > 0.05);
-          Object.assign(s, { lat: g.lat, lon: g.lon, cells, comps, n1: comps.filter((c) => c.km <= r1).length });
+          Object.assign(s, { lat: g.lat, lon: g.lon, cells, comps, n1: comps.filter((c) => c.km <= r1).length, n2: comps.filter((c) => c.km > Math.min(r1, r2) && c.km <= r2).length, n3: comps.filter((c) => c.km <= 3).length });
           s.cap = capture(s, r1, r2);
         } catch (e) { s.err = true; }
       }
@@ -489,15 +489,15 @@
         <p>予測と実績のずれ（平均）: <b>${Math.round(c.before * 100)}%</b> → <b class="good">${Math.round(c.after * 100)}%</b></p>
         <p>来店率: 第1商圏 ${P.rate1}% → <b>${c.rate1}%</b>、第2商圏 ${P.rate2}% → <b>${c.rate2}%</b>（第${c.r1}km・${c.r2}kmで計算）</p>
       </div>
-      <div class="calib-table"><table><thead><tr><th>店</th><th>他社<br><small>第1商圏</small></th><th>実績</th><th>予測</th><th>ずれ</th></tr></thead><tbody></tbody></table></div>
+      <div class="calib-table"><table><thead><tr><th>店</th><th>他社<br><small>第1</small></th><th>他社<br><small>第2</small></th><th>他社<br><small>3km内</small></th><th>実績</th><th>予測</th><th>ずれ</th></tr></thead><tbody></tbody></table></div>
       <div class="set-actions"><button type="button" class="btn" id="calibApply">この来店率を使う</button></div>
       <p class="note">「この来店率を使う」は、この端末だけに反映されます。社員みんなの初期値にするときは、この画面のスクリーンショットを送ってください。</p>`;
     const tb = out.querySelector("tbody");
     for (const s of [...c.ok].sort((a, b) => b.sales - a.sales)) {
       const pv = pred(s, c.fit), gap = (pv - s.sales) / s.sales, tr = document.createElement("tr");
-      [s.name, s.n1 + "店", man(s.sales) + "万", man(pv) + "万", (gap > 0 ? "+" : "") + Math.round(gap * 100) + "%"].forEach((v, i) => {
+      [s.name, s.n1 + "店", s.n2 + "店", s.n3 + "店", man(s.sales) + "万", man(pv) + "万", (gap > 0 ? "+" : "") + Math.round(gap * 100) + "%"].forEach((v, i) => {
         const td = document.createElement("td"); td.textContent = v;
-        if (i === 4 && Math.abs(gap) > 0.3) td.className = "far";
+        if (i === 6 && Math.abs(gap) > 0.3) td.className = "far";
         tr.appendChild(td);
       });
       tb.appendChild(tr);
