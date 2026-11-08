@@ -102,12 +102,19 @@
     const fewHH = cond.slice(0, 2).some((c) => c.pos < 0);
     const base = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
     const pt = specScore(), roadNG = S.road === 1 && !roadOK();
-    const grade = roadNG ? 2 : Math.min(2, Math.max(0, base + specShift(pt)));
-    const sales = GOAL[grade], month = sales / P.price;
-    return { cond, base, pt, roadNG, grade, sales, month, day: month / 30 };
+    // 商圏の判定で出発点の金額帯を決め、お店の条件2点ごとに1つ上下させる
+    const band0 = BASE_BAND[base];
+    let band = Math.min(BANDS.length - 1, Math.max(0, band0 + Math.trunc(pt / 2)));
+    if (roadNG) band = Math.min(band, 3);
+    const grade = band >= 5 ? 0 : band === 4 ? 1 : 2;
+    const [lo, hi] = BANDS[band];
+    return { cond, base, pt, roadNG, grade, band, band0, lo, hi, sales: lo,
+      dayLo: lo / P.price / 30, dayHi: hi ? hi / P.price / 30 : null };
   }
-  // 判定の線: ◎ 月120万円以上、○ 月100万円以上、△ 100万円に届かないおそれ
-  const GOAL = [1200000, 1000000, 1000000];
+  // 月の売上の金額帯（円）。◎=120万円以上、○=100〜120万円、△=100万円未満
+  const BANDS = [[0, 400000], [400000, 600000], [600000, 800000], [800000, 1000000], [1000000, 1200000], [1200000, 1400000], [1400000, 1600000], [1600000, null]];
+  const BASE_BAND = [5, 4, 3];   // 商圏だけで見たときの出発点（◎→120〜140万、○→100〜120万、△→80〜100万）
+  const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `${lo / 1e4}〜${hi / 1e4}万円`; };
   const GRADES = [["◎", "月120万円以上が見込めます", "g0"], ["○", "月100万円以上が見込めます", "g1"], ["△", "月100万円に届かないおそれ", "g2"]];
   const SALES_TXT = ["120万円以上", "100万円以上", "100万円未満のおそれ"];
 
@@ -131,8 +138,6 @@
   const specPt = (d) => d.opts[S[d.k]][1];
   const specScore = () => SPEC_DEF.reduce((a, d) => a + specPt(d), 0);
   const signed = (v) => (v > 0 ? "+" + v : v < 0 ? "−" + -v : "±0");
-  // +3点以上で1段階上げ、−2〜+2点はそのまま、−3〜−5点で1段階下げ、−6点以下で2段階下げ
-  const specShift = (pt) => (pt >= 3 ? -1 : pt >= -2 ? 0 : pt >= -5 ? 1 : 2);
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
 
   const radii = () => [
@@ -308,12 +313,12 @@
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
       <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
       <div class="v-nums">
-        <div><span class="label">月の売上の見込み</span><span class="value">${man(e.sales)}</span><span class="unit">万円${e.grade === 2 ? "未満のおそれ" : "以上"}</span><small>${e.grade === 0 ? `似た条件の直営店は月${man(REF.low)}〜${man(REF.high)}万円くらい` : e.roadNG ? "幹線道路の必須条件がそろっていません" : e.base > 0 ? "直営店にない条件があります" : "お店の条件の点数で下げています"}</small></div>
-        <div><span class="label">来店客数の見込み</span><span class="value">${fmt(e.day)}</span><span class="unit">人／日${e.grade === 2 ? "未満" : "以上"}</span><small>月 ${fmt(e.month)}人（客単価${fmt(P.price)}円）</small></div>
+        <div><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `商圏だけなら ${bandTxt(e.band0)}`}</small></div>
+        <div><span class="label">来店客数の見込み</span><span class="value">${!e.lo ? "〜" + fmt(e.dayHi) : fmt(e.dayLo) + (e.dayHi ? "〜" + fmt(e.dayHi) : "")}</span><span class="unit">人／日${e.dayHi ? "" : "以上"}</span><small>客単価${fmt(P.price)}円で計算</small></div>
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <ul class="v-cond"></ul>
-      <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため△にしました" : e.grade < e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から1段階上げました" : e.grade > e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から" + (e.grade - e.base) + "段階下げました" : "→ 判定はそのまま"}<small>下の「お店の条件」で変えられます</small></p>
+      <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため100万円未満にしました" : e.band > e.band0 ? "→ 売上の見込みを" + (e.band - e.band0) + "段階上げました" : e.band < e.band0 ? "→ 売上の見込みを" + (e.band0 - e.band) + "段階下げました" : "→ 売上の見込みはそのまま"}<small>下の「お店の条件」で変えられます</small></p>
       <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
@@ -325,7 +330,7 @@
       ul.appendChild(li);
     }
     $("#saveBtn").addEventListener("click", saveCurrent);
-    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出・お店の条件 基準から${signed(e.pt)}点）</p></div>`;
+    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${bandTxt(e.band)}</strong>（直営店の売上実績をもとに算出・お店の条件 基準から${signed(e.pt)}点）</p></div>`;
   }
 
   // ---------------------------------------------------------------- 候補地の保存と比較
@@ -335,7 +340,7 @@
     const [r1, r2] = radii(), e = cur.est;
     const list = (store.get("saved") || []).filter((x) => x.key !== savedKey());
     list.unshift({
-      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, pt: e.pt, v: 3, day: e.day, sales: e.sales,
+      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, band: e.band, pt: e.pt, v: 3, day: e.dayLo, sales: e.sales,
       hh1: sumWithin(1).hh, hh2: sumWithin(2).hh, c1: cur.comps.filter((c) => c.km <= 1 && !c.closed).length,
       at: Date.now(),
     });
@@ -354,7 +359,7 @@
       li.innerHTML = `<div class="cmp-head"><b class="cmp-grade ${cls}">${g}</b><button type="button" class="cmp-name"></button>
         <button type="button" class="cmp-del" aria-label="削除">×</button></div>
         <dl class="cmp-nums">
-          <div><dt>売上／月</dt><dd><small>${SALES_TXT[x.grade]}</small></dd></div>
+          <div><dt>売上／月</dt><dd><small>${x.band != null ? bandTxt(x.band) : SALES_TXT[x.grade]}</small></dd></div>
           <div><dt>1km以内の世帯</dt><dd>${fmt(x.hh1)}</dd></div>
           <div><dt>2km以内の世帯</dt><dd>${fmt(x.hh2 || 0)}</dd></div>
           <div><dt>1km以内の他社</dt><dd>${x.c1 ?? x.n1}<small>店</small></dd></div>
