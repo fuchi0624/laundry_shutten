@@ -130,7 +130,7 @@
     { k: "dry", label: "乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 0]] },
     { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, opts: [["ない", -1], ["ある", 0]] },
     { k: "see", label: "お店の見えやすさ（角地・看板）", base: 1, opts: [["見つけにくい", -1], ["ふつう", 0], ["よく見える", 1]] },
-    { k: "rival", label: "500m以内に競合店（大型店や新しい店舗）", base: 0, opts: [["ない", 0], ["ある", -2]] },
+    { k: "rival", label: "500m以内に競合店（大型店や新しい店舗）", base: 0, opts: [["ない", 0], ["ある", -4]] },
     { k: "parkEase", label: "駐車場の止めやすさ", base: 1, opts: [["止めにくい", -1], ["ふつう", 0], ["止めやすい（道から直接入れる）", 1]] },
     { k: "big", label: "大型洗濯機（布団が洗える）", base: 1, opts: [["ない", -1], ["ある", 0]] },
     { k: "clean", label: "クリーニング併設", base: 1, opts: [["なし", -1], ["併設", 0]] },
@@ -141,7 +141,10 @@
   let S = { ...SPEC0, ...(store.get("spec4") || {}) };
   // 幹線道路沿いは3つの条件が必須（そろわなければ判定は△）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
-  const specPt = (d) => d.opts[S[d.k]][1];
+  // 500m以内に7,000世帯以上ある街中では、歩き・自転車のお客さんが多いため駐車場が少なくても減点しない（直営店の実績より）
+  const CITY_HH = 7000;
+  const isCity = () => !!cur && sumWithin(0.5).hh >= CITY_HH;
+  const specPt = (d) => { const v = d.opts[S[d.k]][1]; return d.k === "park" && v < 0 && isCity() ? 0 : v; };
   const specScore = () => SPEC_DEF.reduce((a, d) => a + specPt(d), 0);
   const signed = (v) => (v > 0 ? "+" + v : v < 0 ? "−" + -v : "±0");
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
@@ -424,6 +427,11 @@
         row.querySelector(".seg").appendChild(b);
       });
       row.dataset.k = d.k;
+      if (d.k === "park" && cur) {
+        const n = document.createElement("small"); n.className = "spec-auto";
+        n.textContent = isCity() ? `500m以内に${fmt(sumWithin(0.5).hh)}世帯ある街中なので、駐車場が少なくても減点しません` : `500m以内は${fmt(sumWithin(0.5).hh)}世帯です（7,000世帯以上なら駐車場なしでも減点しません）`;
+        row.appendChild(n);
+      }
       if (d.k === "near" && cur && cur.nearAuto) {
         const n = document.createElement("small"); n.className = "spec-auto";
         n.textContent = cur.nearAuto.name ? `Googleマップで自動判定：${cur.nearAuto.name}（約${cur.nearAuto.m}m）` : "Googleマップで自動判定：300m以内に見つかりませんでした";
