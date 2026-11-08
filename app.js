@@ -106,17 +106,19 @@
     const band0 = BASE_BAND[base];
     let band = Math.min(BANDS.length - 1, Math.max(0, band0 + Math.trunc(pt / 2)));
     if (roadNG) band = Math.min(band, 3);
-    const grade = band >= 5 ? 0 : band === 4 ? 1 : 2;
+    const grade = gradeOf(band);
     const [lo, hi] = BANDS[band];
     return { cond, base, pt, roadNG, grade, band, band0, lo, hi, sales: lo,
       dayLo: lo / P.price / 30, dayHi: hi ? hi / P.price / 30 : null };
   }
   // 月の売上の金額帯（円）。◎=120万円以上、○=100〜120万円、△=100万円未満
   const BANDS = [[0, 400000], [400000, 600000], [600000, 800000], [800000, 1000000], [1000000, 1200000], [1200000, 1400000], [1400000, 1600000], [1600000, null]];
-  const BASE_BAND = [4, 3, 2];   // 商圏だけで見たときの基準（直営店と似た商圏→100〜120万、1つ外れる→80〜100万、それ以外→60〜80万）（2026-11 Yuta指定）
+  const BASE_BAND = [5, 4, 3];   // 商圏だけで見たときの基準（直営店と似た商圏→120〜140万、1つ外れる→100〜120万、それ以外→80〜100万）
   const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `${lo / 1e4}〜${hi / 1e4}万円`; };
-  const GRADES = [["◎", "月120万円以上が見込めます", "g0"], ["○", "月100万円以上が見込めます", "g1"], ["△", "月100万円に届かないおそれ", "g2"]];
-  const SALES_TXT = ["120万円以上", "100万円以上", "100万円未満のおそれ"];
+  // マーク: はなまる=120万円以上、◎=100万円以上、○=80万円以上、△=80万円未満（2026-11 Yuta指定）
+  const GRADES = [["💮", "はなまる！月120万円以上が見込めます", "g0"], ["◎", "月100万円以上が見込めます", "g0"], ["○", "月80〜100万円の見込み", "g1"], ["△", "月80万円に届かないおそれ", "g2"]];
+  const SALES_TXT = ["120万円以上", "100万円以上", "80〜100万円", "80万円未満のおそれ"];
+  const gradeOf = (band) => (band >= 5 ? 0 : band === 4 ? 1 : band === 3 ? 2 : 3);
 
   // ---------------------------------------------------------------- お店の条件（点数）
   // 道・駐車場・広さ・台数・近くの集客施設を点数にして、商圏からの判定を上げ下げする。
@@ -139,7 +141,7 @@
   const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["seeOpp", "反対車線から見えやすい"]];
   const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false };
   let S = { ...SPEC0, ...(store.get("spec4") || {}) };
-  // 幹線道路沿いは3つの条件が必須（そろわなければ判定は△）
+  // 幹線道路沿いは3つの条件が必須（そろわなければ80〜100万円まで）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
   // 500m以内に7,000世帯以上ある街中では、歩き・自転車のお客さんが多いため駐車場が少なくても減点しない（直営店の実績より）
   const CITY_HH = 7000;
@@ -387,7 +389,7 @@
     $("#compare").hidden = !list.length;
     ol.textContent = "";
     list.forEach((x, i) => {
-      const [g, gl, cls] = GRADES[x.grade];
+      const [g, gl, cls] = GRADES[x.band != null ? gradeOf(x.band) : x.grade];
       const li = document.createElement("li");
       li.className = "cmp";
       li.innerHTML = `<div class="cmp-head"><b class="cmp-grade ${cls}">${g}</b><button type="button" class="cmp-name"></button>
@@ -440,7 +442,7 @@
       body.appendChild(row);
       if (d.k === "road" && S.road === 1) {
         const sub = document.createElement("div"); sub.className = "spec-sub";
-        sub.innerHTML = `<p>幹線道路沿いは次の3つが必須です。1つでも欠けると判定は△になります</p>`;
+        sub.innerHTML = `<p>幹線道路沿いは次の3つが必須です。1つでも欠けると売上の見込みは80〜100万円までになります</p>`;
         sub.classList.toggle("ng", !roadOK());
         for (const [k, t] of ROAD_OK) {
           const l = document.createElement("label");
