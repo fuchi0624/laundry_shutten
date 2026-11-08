@@ -60,6 +60,14 @@ a{color:var(--accent-deep)}
 .hero h1{font-size:clamp(1.55rem,7.6vw,2.05rem);letter-spacing:.06em;color:#fff;text-shadow:0 0 18px rgba(255,138,69,.35)}
 .hero h1::after{content:"";display:block;width:64px;height:2px;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,#ff8a45,rgba(255,138,69,0));box-shadow:0 0 8px rgba(255,138,69,.8)}
 .hero .lead{color:#cdbfb4;opacity:1}
+/* タイトル文字: 「ランドリー出店」＋光るオレンジの英字「Navi」 */
+.logo-type{white-space:nowrap}
+.logo-type .lt-en{margin-left:.12em}
+.logo-type .lt-jp{letter-spacing:.04em}
+.logo-type .lt-en{font-family:"Outfit",sans-serif;font-weight:800;font-size:1.22em;letter-spacing:-.01em;line-height:1;
+  transform:skewX(-8deg);display:inline-block;padding-right:.08em;
+  background:linear-gradient(180deg,#ffd0a8 0%,#ff8a45 45%,#e2621b 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 10px rgba(255,138,69,.45))}
 .hero-in{max-width:720px;margin:0 auto;padding-block:20px 64px;display:grid;gap:10px}
 .brand{display:flex;align-items:center;gap:12px}
 .logo{width:42px;height:42px;flex:none}
