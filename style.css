@@ -296,7 +296,7 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 /* ---- 印刷: 見出しの右に判定 */
 .pverdict{display:none}
 @media print{
-  .verdict,.compare,.settings{display:none !important}
+  .verdict,.spec,.compare,.settings{display:none !important}
   .phead-title{flex:1}
   .pverdict{display:flex;align-items:center;gap:2.5mm;flex:none;border:.3mm solid var(--line);border-radius:2.5mm;padding:1.5mm 3mm}
   .pverdict>b{display:grid;place-items:center;width:10mm;height:10mm;border-radius:50%;font-size:15pt;line-height:1}
@@ -340,3 +340,23 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 @media (prefers-color-scheme:dark){.v-cond .mk{background:#183326;color:#5cc48a}.v-cond li.ng .mk{background:#3a2d10;color:#f0b33c}.v-cond li.ng small{color:#f0b33c}}
 .settings .set-body .note+.note{margin-top:-4px}
 
+
+.v-spec{margin:0;padding:10px 12px;border-radius:12px;background:var(--g-soft);font-size:.86rem;line-height:1.5}
+.v-spec b{font-family:var(--f-num);font-size:1.15rem;color:var(--g)}
+.v-spec small{display:block;font-size:.74rem;color:var(--muted)}
+.spec{display:grid;gap:12px}
+.spec-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.spec-head h3{margin:0;font-size:1.05rem}
+.spec-total{font-size:.9rem}.spec-total b{font-family:var(--f-num);font-size:1.3rem}
+.spec .note{margin:0;font-size:.78rem;color:var(--muted);line-height:1.6}
+.spec-body{display:grid;gap:10px}
+.spec-row{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center}
+.spec-lb{font-size:.84rem;font-weight:700}
+.spec-pt{font-family:var(--f-num);font-size:.9rem;text-align:right}
+.seg{grid-column:1 / 3;display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:inherit;font:inherit;font-size:.84rem;cursor:pointer}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.spec-sub{display:grid;gap:6px;padding:10px 12px;border-radius:12px;background:var(--surface-2);font-size:.84rem}
+.spec-sub p{margin:0;font-size:.76rem;color:var(--muted)}
+.spec-sub label{display:flex;gap:8px;align-items:center;min-height:32px}
+.spec-sub input{width:20px;height:20px}

@@ -100,14 +100,43 @@
     const cond = conditions(), out = cond.filter((c) => c.pos !== 0).length;
     // 世帯数が直営店のどの店より少ない場所は、売上が伸びにくいおそれ（世帯がいちばん少ない直営店は100万円未満）
     const fewHH = cond.slice(0, 2).some((c) => c.pos < 0);
-    const grade = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
+    const base = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
+    const pt = specScore(), grade = Math.min(2, Math.max(0, base + specShift(pt)));
     const sales = GOAL[grade], month = sales / P.price;
-    return { cond, grade, sales, month, day: month / 30 };
+    return { cond, base, pt, grade, sales, month, day: month / 30 };
   }
   // 判定の線: ◎ 月120万円以上、○ 月100万円以上、△ 100万円に届かないおそれ
   const GOAL = [1200000, 1000000, 1000000];
   const GRADES = [["◎", "月120万円以上が見込めます", "g0"], ["○", "月100万円以上が見込めます", "g1"], ["△", "月100万円に届かないおそれ", "g2"]];
   const SALES_TXT = ["120万円以上", "100万円以上", "100万円未満のおそれ"];
+
+  // ---------------------------------------------------------------- お店の条件（点数）
+  // 道・駐車場・広さ・台数・近くの集客施設を点数にして、商圏からの判定を上げ下げする。
+  // 点数の配分は社内の考え方（生活道路沿いが良い、幹線道路は条件つき）をもとにした目安。
+  const SPEC_DEF = [
+    { k: "road", label: "道", opts: [["生活道路沿い", 3], ["幹線道路沿い", 1]] },
+    { k: "park", label: "駐車場", opts: [["なし", 0], ["1〜2台", 1], ["3台以上", 2]] },
+    { k: "tsubo", label: "広さ", opts: [["25坪未満", 0], ["25〜35坪", 1], ["35坪以上", 2]] },
+    { k: "wd", label: "洗濯乾燥機", opts: [["3台以下", 0], ["4台", 1], ["5台以上", 2]] },
+    { k: "near", label: "300m以内のスーパー・ドラッグストア", opts: [["ない", 0], ["ある", 1]] },
+  ];
+  const ROAD_OK = [["turn", "右折で入れる"], ["see", "反対車線からも見えやすい"], ["median", "中央分離帯がない"]];
+  const SPEC0 = { road: 0, park: 1, tsubo: 1, wd: 1, near: 1, turn: false, see: false, median: false };
+  let S = { ...SPEC0, ...(store.get("spec") || {}) };
+  const SPEC_MAX = SPEC_DEF.reduce((a, d) => a + Math.max(...d.opts.map((o) => o[1])), 0);
+  // 幹線道路沿いは3つの条件がそろわないと0点
+  const roadOK = () => ROAD_OK.every(([k]) => S[k]);
+  function specScore() {
+    let pt = 0;
+    for (const d of SPEC_DEF) {
+      let v = d.opts[S[d.k]][1];
+      if (d.k === "road" && S.road === 1 && !roadOK()) v = 0;
+      pt += v;
+    }
+    return pt;
+  }
+  // 9点以上で1段階上げ、6〜8点はそのまま、4〜5点で1段階下げ、3点以下で2段階下げ
+  const specShift = (pt) => (pt >= 9 ? -1 : pt >= 6 ? 0 : pt >= 4 ? 1 : 2);
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
 
   const radii = () => [
@@ -283,12 +312,13 @@
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
       <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
       <div class="v-nums">
-        <div><span class="label">月の売上の見込み</span><span class="value">${man(e.sales)}</span><span class="unit">万円${e.grade === 2 ? "未満のおそれ" : "以上"}</span><small>${e.grade === 0 ? `似た条件の直営店は月${man(REF.low)}〜${man(REF.high)}万円くらい` : "直営店にない条件があります"}</small></div>
+        <div><span class="label">月の売上の見込み</span><span class="value">${man(e.sales)}</span><span class="unit">万円${e.grade === 2 ? "未満のおそれ" : "以上"}</span><small>${e.grade === 0 ? `似た条件の直営店は月${man(REF.low)}〜${man(REF.high)}万円くらい` : e.base > 0 ? "直営店にない条件があります" : "お店の条件の点数で下げています"}</small></div>
         <div><span class="label">来店客数の見込み</span><span class="value">${fmt(e.day)}</span><span class="unit">人／日${e.grade === 2 ? "未満" : "以上"}</span><small>月 ${fmt(e.month)}人（客単価${fmt(P.price)}円）</small></div>
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <ul class="v-cond"></ul>
-      <p class="v-note">${e.grade === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.grade === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
+      <p class="v-spec">お店の条件 <b>${e.pt}</b>点／${SPEC_MAX}点　${e.grade < e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から1段階上げました" : e.grade > e.base ? "→ 商圏だけの判定（" + GRADES[e.base][0] + "）から" + (e.grade - e.base) + "段階下げました" : "→ 判定はそのまま"}<small>下の「お店の条件」で変えられます</small></p>
+      <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
       const li = document.createElement("li"); li.className = c.pos ? "ng" : "ok";
@@ -299,7 +329,7 @@
       ul.appendChild(li);
     }
     $("#saveBtn").addEventListener("click", saveCurrent);
-    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出）</p></div>`;
+    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${SALES_TXT[e.grade]}</strong>（直営店の売上実績をもとに算出・お店の条件${e.pt}点／${SPEC_MAX}点）</p></div>`;
   }
 
   // ---------------------------------------------------------------- 候補地の保存と比較
@@ -309,7 +339,7 @@
     const [r1, r2] = radii(), e = cur.est;
     const list = (store.get("saved") || []).filter((x) => x.key !== savedKey());
     list.unshift({
-      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, day: e.day, sales: e.sales,
+      key: savedKey(), address: cur.address, r1, r2, grade: e.grade, pt: e.pt, day: e.day, sales: e.sales,
       hh1: sumWithin(1).hh, hh2: sumWithin(2).hh, c1: cur.comps.filter((c) => c.km <= 1 && !c.closed).length,
       at: Date.now(),
     });
@@ -332,6 +362,7 @@
           <div><dt>1km以内の世帯</dt><dd>${fmt(x.hh1)}</dd></div>
           <div><dt>2km以内の世帯</dt><dd>${fmt(x.hh2 || 0)}</dd></div>
           <div><dt>1km以内の他社</dt><dd>${x.c1 ?? x.n1}<small>店</small></dd></div>
+          ${x.pt != null ? `<div><dt>お店の条件</dt><dd>${x.pt}<small>点</small></dd></div>` : ""}
         </dl><p class="cmp-sub">${gl}</p>`;
       li.querySelector(".cmp-name").textContent = x.address;
       li.querySelector(".cmp-name").onclick = () => {
@@ -345,6 +376,52 @@
       ol.appendChild(li);
     });
   }
+
+  function renderSpec() {
+    const box = $("#spec"); if (!box) return;
+    const body = box.querySelector(".spec-body"); body.textContent = "";
+    const upd = () => { store.set("spec", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
+    for (const d of SPEC_DEF) {
+      const row = document.createElement("div"); row.className = "spec-row";
+      row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div><b class="spec-pt"></b>`;
+      row.querySelector(".spec-lb").textContent = d.label;
+      d.opts.forEach(([t, v], i) => {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = `${t}`;
+        b.className = S[d.k] === i ? "on" : "";
+        b.onclick = () => { S[d.k] = i; renderSpec(); upd(); };
+        row.querySelector(".seg").appendChild(b);
+      });
+      row.dataset.k = d.k;
+      body.appendChild(row);
+      if (d.k === "road" && S.road === 1) {
+        const sub = document.createElement("div"); sub.className = "spec-sub";
+        sub.innerHTML = `<p>幹線道路沿いは、3つともそろって1点です</p>`;
+        for (const [k, t] of ROAD_OK) {
+          const l = document.createElement("label");
+          l.innerHTML = `<input type="checkbox"><span></span>`;
+          l.querySelector("span").textContent = t;
+          const c = l.querySelector("input"); c.checked = !!S[k];
+          c.onchange = () => { S[k] = c.checked; upd(); };
+          sub.appendChild(l);
+        }
+        body.appendChild(sub);
+      }
+    }
+    renderSpecPts();
+  }
+  function renderSpecPts() {
+    const box = $("#spec"); if (!box) return;
+    for (const row of box.querySelectorAll(".spec-row")) {
+      const d = SPEC_DEF.find((x) => x.k === row.dataset.k);
+      let v = d.opts[S[d.k]][1];
+      if (d.k === "road" && S.road === 1 && !roadOK()) v = 0;
+      row.querySelector(".spec-pt").textContent = `${v}点`;
+    }
+    const pt = specScore();
+    box.querySelector(".spec-total").innerHTML = `合計 <b>${pt}</b>点／${SPEC_MAX}点`;
+  }
+  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
+  renderSpec();
 
   // ---------------------------------------------------------------- 計算の前提
   function renderSettings() {
