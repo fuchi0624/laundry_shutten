@@ -469,7 +469,7 @@
     const pt = specScore();
     box.querySelector(".spec-total").innerHTML = `基準から <b>${signed(pt)}</b>点`;
   }
-  // ① 商圏を調べる ／ ② 売上予測 の切り替え
+  // ① 商圏調査 ／ ② 売上予測 の切り替え
   function showTab(n) {
     for (const i of [1, 2]) {
       $("#panel" + i).hidden = i !== n;
