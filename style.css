@@ -424,3 +424,15 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .panel.p2 .panel-head p{color:var(--ink-muted)}
 .panel.p2 .btn.predict{box-shadow:0 8px 22px rgba(226,98,27,.45)}
 @media print{.tabs,#goTab2,#panel2,.panel-head{display:none !important}#panel1{display:contents !important}#panel1>*{min-height:0;overflow:hidden;break-inside:avoid}}
+
+/* 事業計画書 */
+.plan{display:grid;gap:12px}
+.plan .note{margin:0;font-size:.78rem;color:var(--muted);line-height:1.6}
+.plan-fields{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.plan-f{display:grid;gap:4px;font-size:.78rem;color:var(--muted);min-width:0}
+.plan-f:first-child{grid-column:1/-1}
+.plan-f .field{padding:0 10px}
+.plan-f input{font:inherit;font-size:16px;color:var(--fg);background:transparent;border:0;outline:0;padding:10px 0;width:100%;min-width:0}
+.plan-f small{color:var(--muted)}
+.plan-msg{margin:0;font-size:.8rem;color:var(--muted);min-height:1em}
+@media print{.plan{display:none!important}}

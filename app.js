@@ -351,7 +351,7 @@
     cur.est = e;
     const box = $("#verdict");
     // 売上予測は「売上予測を見る」を押してから出す
-    box.hidden = !cur.shown;
+    box.hidden = !cur.shown; $("#planCard").hidden = !cur.shown;
     if (!cur.shown) { $("#pverdict").innerHTML = ""; return; }
     box.className = "card verdict " + cls;
     box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
@@ -489,9 +489,114 @@
   $("#goTab2").addEventListener("click", () => showTab(2));
   $("#predictBtn").addEventListener("click", () => {
     if (!cur) return;
-    cur.shown = true; renderVerdict(); renderPrint();
+    cur.shown = true; renderVerdict(); renderPrint(); renderPlanForm();
     $("#verdict").scrollIntoView({ behavior: "smooth", block: "start" });
   });
+  // ---------------------------------------------------------------- 事業計画書（Excel）
+  // 「商圏分析と事業計画書の自動作成」と同じ形式・同じ費用の前提で、売上はこの売上予測を使う
+  const PLAN0 = { open: "", rent: 150000, invest: 25000000, own: 5000000 };
+  const PLAN_FIELDS = [["name", "店舗名", "text"], ["open", "開業予定日", "text", "例: 2027年4月"], ["rent", "地代・家賃（月）", "yen"], ["invest", "初期投資額", "yen"], ["own", "自己資金", "yen"]];
+  let planIn = { ...PLAN0, ...(store.get("plan") || {}) };
+  const loadScript = (src) => new Promise((ok, ng) => { const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = ng; document.head.appendChild(t); });
+  function renderPlanForm() {
+    const box = $("#planFields"); if (!box) return;
+    box.textContent = "";
+    for (const [k, label, type, ph] of PLAN_FIELDS) {
+      const l = document.createElement("label"); l.className = "plan-f";
+      l.innerHTML = `<span></span><div class="field"><input${type === "yen" ? ' inputmode="numeric"' : ""}>${type === "yen" ? "<small>円</small>" : ""}</div>`;
+      l.querySelector("span").textContent = label;
+      const inp = l.querySelector("input"); inp.dataset.k = k;
+      if (ph) inp.placeholder = ph;
+      const v = k === "name" ? (planIn.name || "") : planIn[k];
+      inp.value = type === "yen" ? fmt(v) : v;
+      if (k === "name") inp.placeholder = defaultName();
+      inp.addEventListener("change", () => {
+        planIn[k] = type === "yen" ? Math.max(0, +inp.value.replace(/[^\d]/g, "") || 0) : inp.value.trim();
+        if (type === "yen") inp.value = fmt(planIn[k]);
+        store.set("plan", planIn);
+      });
+      box.appendChild(l);
+    }
+  }
+  const defaultName = () => "コインランドリー（" + (cur && cur.matched ? cur.matched.replace(/^.*?[都道府県]/, "").replace(/[0-9０-９一二三四五六七八九十〇]+丁目.*$|[0-9０-９].*$/, "") : "候補地") + "）";
+  function planData() {
+    const e = estimate(), [r1, r2] = radii(), [g, gl] = GRADES[e.grade];
+    const k1 = sumWithin(1), k2 = sumWithin(2), ring1 = sumWithin(r1), ring2 = sumWithin(r2, r1), h05 = sumWithin(0.5).hh;
+    const live = cur.comps.filter((c) => !c.closed);
+    const n = (km) => live.filter((c) => c.km <= km).length;
+    const single = k1.single / Math.max(1, k1.hh);
+    const sales = e.lo || e.hi;
+    const spec = SPEC_DEF.filter((d) => !(S.road === 0 && ["lanes", "access", "speed"].includes(d.k)))
+      .map((d) => ({ label: d.label, choice: d.opts[S[d.k]][0], pt: specPt(d) }));
+    if (S.road === 1) for (const [k, t] of ROAD_OK) spec.push({ label: "幹線道路の必須条件: " + t, choice: S[k] ? "はい" : "いいえ", pt: 0 });
+    const cond = e.cond.map((c) => ({ label: c.label, value: c.value,
+      note: c.extra ? (c.up ? "マンションが多い地域なので、基準を1段階上げた" : "5割未満（一軒家が多め）なので、基準はそのまま") : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内" }));
+    // 文章（黄色の欄なので、あとから書き換えられる）
+    const target = (single >= APT_RATIO ? "単身世帯の割合が高い（1km以内の" + Math.round(single * 100) + "%）ため、洗濯機を持たない・乾燥機のない一人暮らしの方、" : "ファミリー世帯が中心のため、") +
+      (k1.kids > 0 ? "布団・毛布など大物を洗いたい子育て世帯、" : "") + "共働きで「まとめ洗い・まとめ乾燥」をしたい方、雨の日や花粉の季節の乾燥ニーズ。";
+    const areaText = `1km以内に約${fmt(k1.hh)}世帯、2km以内に約${fmt(k2.hh)}世帯。` +
+      (e.base === 0 ? "世帯数・他社の数とも、ランドリープレス直営店と同じくらいの条件の商圏。" : e.base === 1 ? "直営店にない条件が1つあり、売上は上下にずれやすい商圏。" : "世帯数が直営店より少ない、または直営店にない条件が重なる商圏のため、慎重な判断が必要。") +
+      (single >= APT_RATIO ? "マンションが多い地域で、コインランドリーの利用が見込みやすい。" : "") + (h05 >= CITY_HH ? "500m以内に" + fmt(h05) + "世帯あり、歩き・自転車のお客さんも見込める。" : "");
+    const near = live.slice(0, 3).map((c) => `${c.name}（${c.km.toFixed(1)}km）`).join("、");
+    const compText = `500m以内に${n(0.5)}店、1km以内に${n(1)}店、2km以内に${n(2)}店のコインランドリーがある。` + (near ? "近い店: " + near + "。" : "") +
+      (S.rival === 1 ? "500m以内に大型店や新しい店舗があり、差別化が必要。" : "500m以内に大型店や新しい店舗はない。");
+    const st = [];
+    if (S.road === 0) st.push("生活道路沿いで、近所の方が立ち寄りやすい");
+    if (S.near === 1) st.push("300m以内にスーパー・ドラッグストアがあり、買い物ついでに使える");
+    if (S.see === 2) st.push("角地・看板でお店がよく見える");
+    if (S.parkEase === 2) st.push("駐車場が道から直接入れて止めやすい");
+    if (S.big === 1) st.push("布団が洗える大型洗濯機がある");
+    if (S.clean === 1) st.push("クリーニング併設");
+    if (S.rival === 0) st.push("500m以内に大型店や新しい競合店がない");
+    if (single >= APT_RATIO) st.push("マンションが多く、コインランドリーを使う世帯が多い地域");
+    st.push("ランドリープレスの運営ノウハウ（清潔な店内・明るい照明・キャッシュレス対応）");
+    const rk = [];
+    if (S.rival === 1) rk.push("近くの競合店 → 清潔さ・機械の新しさ・大型機の訴求で差別化する");
+    if (S.road === 1) rk.push("幹線道路沿いで入りにくい → 看板・誘導で入口をわかりやすくする");
+    if (specPt(SPEC_DEF.find((d) => d.k === "park")) < 0) rk.push("駐車場が少ない → 近隣のお客さん（歩き・自転車）を中心に集客する");
+    if (S.night === 0) rk.push("夜が暗い → 店内外の照明・防犯カメラで入りやすくする");
+    if (e.base > 0) rk.push("直営店と条件が違う商圏 → 開業後の売上を毎月確認し、早めに手を打つ");
+    rk.push("天候・季節で売上が上下する → 梅雨・花粉・冬の布団洗いの時期に集中して宣伝する");
+    rk.push("機械の故障 → 保守契約を結び、止まる時間を短くする");
+    return {
+      address: cur.address, matched: cur.matched, lat: cur.lat, lon: cur.lon,
+      created: new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" }),
+      r1, r2, ring1, ring2, km1: k1, km2: k2,
+      comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
+        ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
+      compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
+      est: { mark: g, markText: gl, bandText: "月" + bandTxt(e.band), baseText: e.roadNG ? "幹線道路の必須条件がそろっていないため80〜100万円まで" : bandTxt(e.band0), ptText: `基準から${signed(e.pt)}点`, cond },
+      spec, target, areaText, compText, strengths: st.join("。") + "。", risks: rk.join("。") + "。",
+      inputs: { name: planIn.name || defaultName(), open: planIn.open, price: P.price, sales,
+        salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）の下限＝固めの数字` : "売上予測の上限",
+        varRate: 0.3, clean: 50000, rent: planIn.rent, other: 50000, invest: planIn.invest, own: Math.min(planIn.own, planIn.invest), rate: 0.02, years: 10, dep: 10 },
+    };
+  }
+  $("#planBtn").addEventListener("click", async () => {
+    if (!cur) return;
+    const btn = $("#planBtn"), msg = $("#planMsg");
+    document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
+    btn.disabled = true; msg.textContent = "つくっています…";
+    try {
+      if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=2");
+      const d = planData();
+      const blob = await window.OpenNaviPlan.makePlan(d);
+      const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
+      const file = new File([blob], fname, { type: blob.type });
+      // スマホは「共有」からファイルに保存・LINEやメールで送れるように
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) {
+        try { await navigator.share({ files: [file], title: fname }); msg.textContent = "できました。"; return; } catch (err) { if (err.name === "AbortError") { msg.textContent = ""; return; } }
+      }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      msg.textContent = `「${fname}」をダウンロードしました。`;
+    } catch (err) {
+      console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。";
+    } finally { btn.disabled = false; }
+  });
+  renderPlanForm();
+
   $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 

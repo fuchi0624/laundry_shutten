@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@200;500;700;800&display=swap">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <div class="lp-bar"><div class="lp-in">
@@ -110,6 +110,13 @@
     </section>
     <button type="button" class="btn predict" id="predictBtn">売上予測を見る</button>
     <section class="card verdict" id="verdict" hidden></section>
+    <section class="card plan" id="planCard" hidden>
+      <div class="sec-head"><h2>事業計画書をつくる</h2><span class="sub">Excel</span></div>
+      <p class="note">この売上予測と商圏調査の結果から、事業計画書（3か年の収支計画つき）をExcelでつくります。費用は「初期投資・家賃」以外、これまでの事業計画書と同じ前提です（変動費30%、清掃・管理委託 月5万円、その他固定費 月5万円、借入 金利2%・10年返済）。Excelの「前提条件」シートで、あとから全部変えられます。</p>
+      <div class="plan-fields" id="planFields"></div>
+      <button type="button" class="btn" id="planBtn">事業計画書をつくる（Excel）</button>
+      <p class="plan-msg" id="planMsg" aria-live="polite"></p>
+    </section>
     </div>
   </div>
   <section class="card compare" id="compare" hidden>
@@ -134,6 +141,6 @@
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>
