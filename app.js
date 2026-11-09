@@ -96,17 +96,21 @@
         high: "直営店のどの店より多めです" },
       // マンションが多い地域（1km以内の単身世帯が5割以上）は1段階上げる（2026-11-08 直営店14店の答え合わせから）
       { label: "1km以内の単身世帯の割合", value: `${Math.round(s1.single / Math.max(1, s1.hh) * 100)}%`, pos: 0, extra: true,
-        up: s1.single / Math.max(1, s1.hh) >= APT_RATIO },
+        up: s1.single / Math.max(1, s1.hh) >= APT_RATIO,
+        upText: "マンションが多い地域なので、基準を1段階上げました", keepText: "5割未満（一軒家が多め）なので、基準はそのまま" },
+      // 夜も人が来る立地は1段階上げる（2026-11-09 Yuta決定。参考チェックの「はい」）
+      { label: "夜も人が来る立地", value: CHECK_OPTS[CK.night || 0], pos: 0, extra: true, up: CK.night === 1,
+        upText: "夜も人が来る立地なので、基準を1段階上げました", keepText: "「はい」のときだけ1段階上げます（お店の条件の参考チェックで選べます）" },
     ];
   }
   function estimate() {
-    const cond = conditions(), out = cond.filter((c) => !c.extra && c.pos !== 0).length, apt = cond.some((c) => c.extra && c.up);
+    const cond = conditions(), out = cond.filter((c) => !c.extra && c.pos !== 0).length, apt = cond.filter((c) => c.extra && c.up).length;
     // 世帯数が直営店のどの店より少ない場所は、売上が伸びにくいおそれ（世帯がいちばん少ない直営店は100万円未満）
     const fewHH = cond.slice(0, 2).some((c) => c.pos < 0);
     const base = fewHH || out >= 2 ? 2 : out === 1 ? 1 : 0;
     const pt = specScore(), roadNG = S.road === 1 && !roadOK();
     // 商圏の判定で出発点の金額帯を決め、お店の条件4点ごとに1つ上下させる（2026-11-08 直営店14店の答え合わせで、お店側の点を半分の重みに）
-    const band0 = BASE_BAND[base] + (apt ? 1 : 0);
+    const band0 = BASE_BAND[base] + apt;
     let band = Math.min(BANDS.length - 1, Math.max(0, band0 + Math.trunc(pt / STEP_PT)));
     if (roadNG) band = Math.min(band, 3);
     const grade = gradeOf(band);
@@ -148,7 +152,7 @@
   ];
   // 参考チェック（2026-11-09 Yuta希望で追加）。まだ点数には入れない。直営店で答え合わせして効いたものだけ点数にする
   const CHECK_DEF = [
-    { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）", place: true },
+    { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）", place: true, scored: true },
     { k: "route", label: "スーパーや駅に行く途中の、生活の通り道にある", place: true },
     { k: "split", label: "商圏が川・線路・大きな道路で分断されている", place: true, bad: true },
     { k: "weakRival", label: "近くの競合店は古い・小さい・汚い店ばかり", place: true },
@@ -404,7 +408,7 @@
       li.innerHTML = `<span class="mk">${c.extra ? (c.up ? "↑" : "–") : c.pos ? "!" : "✓"}</span><span class="lb"></span><b></b><small></small>`;
       li.querySelector(".lb").textContent = c.label;
       li.querySelector("b").textContent = c.value;
-      li.querySelector("small").textContent = c.extra ? (c.up ? "マンションが多い地域なので、基準を1段階上げました" : "5割未満（一軒家が多め）なので、基準はそのまま")
+      li.querySelector("small").textContent = c.extra ? (c.up ? c.upText : c.keepText)
         : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内";
       ul.appendChild(li);
     }
@@ -507,7 +511,7 @@
     for (const d of CHECK_DEF) {
       const row = document.createElement("div"); row.className = "spec-row chk";
       row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div>`;
-      row.querySelector(".spec-lb").textContent = d.label;
+      row.querySelector(".spec-lb").textContent = d.label + (d.scored ? "【はい＝売上の見込みを1段階上げる】" : "");
       CHECK_OPTS.forEach((t, i) => {
         const b = document.createElement("button"); b.type = "button"; b.textContent = t;
         b.className = (CK[d.k] || 0) === i ? "on" : "";
@@ -612,7 +616,7 @@
       .map((d) => ({ label: d.label, choice: d.opts[S[d.k]][0], pt: specPt(d) }));
     if (S.road === 1) for (const [k, t] of ROAD_OK) spec.push({ label: "幹線道路の必須条件: " + t, choice: S[k] ? "はい" : "いいえ", pt: 0 });
     const cond = e.cond.map((c) => ({ label: c.label, value: c.value,
-      note: c.extra ? (c.up ? "マンションが多い地域なので、基準を1段階上げた" : "5割未満（一軒家が多め）なので、基準はそのまま") : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内" }));
+      note: c.extra ? (c.up ? c.upText : c.keepText) : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内" }));
     // 文章（黄色の欄なので、あとから書き換えられる）
     const target = (single >= APT_RATIO ? "単身世帯の割合が高い（1km以内の" + Math.round(single * 100) + "%）ため、洗濯機を持たない・乾燥機のない一人暮らしの方、" : "ファミリー世帯が中心のため、") +
       (k1.kids > 0 ? "布団・毛布など大物を洗いたい子育て世帯、" : "") + "共働きで「まとめ洗い・まとめ乾燥」をしたい方、雨の日や花粉の季節の乾燥ニーズ。";
