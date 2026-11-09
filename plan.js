@@ -269,6 +269,11 @@
     fc.set("A" + r, "お店の条件（直営店の標準的なつくりを0点として）", ST.h2); r++;
     ["項目", "選んだもの", "点数"].forEach((h, i) => fc.set(colName(i) + r, h, ST.head)); r++;
     d.spec.forEach((x) => { fc.set("A" + r, x.label, ST.label).set("B" + r, x.choice, ST.n).set("C" + r, x.pt, ST.n); r++; });
+    if (d.checks && d.checks.length) {
+      r++; fc.set("A" + r, "参考チェック（点数には入れていない）", ST.h2); r++;
+      ["項目", "チェック", ""].forEach((h, i) => fc.set(colName(i) + r, h, ST.head)); r++;
+      d.checks.forEach((x) => { fc.set("A" + r, x.label, ST.wrap).set("B" + r, x.choice, ST.n); r++; });
+    }
     fc.set("A" + (r + 1), "※お店の条件は合計4点ごとに、売上の見込み（20万円きざみ）を1段階上げ下げしています。予測はあくまで目安で、実際の売上を約束するものではありません。", ST.note);
     fc.merges.push(`A${r + 1}:C${r + 1}`); fc.heights[r + 1] = 36;
     dayRef = "売上予測!B9";

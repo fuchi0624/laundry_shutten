@@ -146,6 +146,20 @@
     { k: "clean", label: "クリーニング併設", base: 1, opts: [["なし", -1], ["併設", 0]] },
     { k: "night", label: "夜の明るさ・入りやすさ", base: 1, opts: [["暗い・入りにくい", -1], ["明るく入りやすい", 0]] },
   ];
+  // 参考チェック（2026-11-09 Yuta希望で追加）。まだ点数には入れない。直営店で答え合わせして効いたものだけ点数にする
+  const CHECK_DEF = [
+    { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）" },
+    { k: "route", label: "スーパーや駅に行く途中の、生活の通り道にある" },
+    { k: "split", label: "商圏が川・線路・大きな道路で分断されている", bad: true },
+    { k: "weakRival", label: "近くの競合店は古い・小さい・汚い店ばかり" },
+    { k: "rivalBig", label: "近くの競合店に布団が洗える大型洗濯機がある", bad: true },
+    { k: "growing", label: "新しいマンションや住宅地が増えている" },
+    { k: "glass", label: "店内が外から見える（ガラス張り・明るい）" },
+    { k: "cashless", label: "キャッシュレス・アプリで払える" },
+    { k: "h24", label: "24時間営業" },
+  ];
+  const CHECK_OPTS = ["わからない", "はい", "いいえ"];
+  let CK = { ...(store.get("check1") || {}) };
   const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["seeOpp", "反対車線から見えやすい"]];
   const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false };
   let S = { ...SPEC0, ...(store.get("spec4") || {}) };
@@ -465,10 +479,38 @@
       }
     }
     renderSpecPts();
+    renderChecks();
   }
+  function renderChecks() {
+    const box = $("#chkBody"); if (!box) return;
+    box.textContent = "";
+    for (const d of CHECK_DEF) {
+      const row = document.createElement("div"); row.className = "spec-row chk";
+      row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div>`;
+      row.querySelector(".spec-lb").textContent = d.label;
+      CHECK_OPTS.forEach((t, i) => {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+        b.className = (CK[d.k] || 0) === i ? "on" : "";
+        b.onclick = () => { CK[d.k] = i; store.set("check1", CK); renderChecks(); if (cur && cur.shown) renderVerdict(); };
+        row.querySelector(".seg").appendChild(b);
+      });
+      box.appendChild(row);
+    }
+    // 地域の特徴（自動）: 高齢者・子育て世帯の割合
+    const auto = document.createElement("div"); auto.className = "spec-row chk";
+    if (cur) {
+      const s1 = sumWithin(1), hh = Math.max(1, s1.hh);
+      auto.innerHTML = `<span class="spec-lb">1km以内の世帯のうち（自動）</span><small class="spec-auto"></small>`;
+      auto.querySelector("small").textContent = `65歳以上がいる世帯 ${Math.round(s1.senior / hh * 100)}%・6歳未満の子がいる世帯 ${Math.round(s1.kids / hh * 100)}%（布団・毛布の需要の目安）`;
+    } else {
+      auto.innerHTML = `<span class="spec-lb">高齢者・子育て世帯の割合</span><small class="spec-auto">住所を調べると自動で出ます</small>`;
+    }
+    box.appendChild(auto);
+  }
+  const checkList = () => CHECK_DEF.map((d) => ({ label: d.label, choice: CHECK_OPTS[CK[d.k] || 0] }));
   function renderSpecPts() {
     const box = $("#spec"); if (!box) return;
-    for (const row of box.querySelectorAll(".spec-row")) {
+    for (const row of box.querySelectorAll(".spec-row:not(.chk)")) {
       const d = SPEC_DEF.find((x) => x.k === row.dataset.k);
       row.querySelector(".spec-pt").textContent = `${signed(specPt(d))}点`;
     }
@@ -574,7 +616,7 @@
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
       compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
       est: { mark: g, markText: gl, bandText: "月" + bandTxt(e.band), baseText: e.roadNG ? "幹線道路の必須条件がそろっていないため80〜100万円まで" : bandTxt(e.band0), ptText: `基準から${signed(e.pt)}点`, cond },
-      spec, target, areaText, compText, strengths: st.join("。") + "。", risks: rk.join("。") + "。",
+      spec, checks: checkList(), target, areaText, compText, strengths: st.join("。") + "。", risks: rk.join("。") + "。",
       inputs: { name: planIn.name || defaultName(), open: planIn.open, price: P.price, sales,
         salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）の下限＝固めの数字` : "売上予測の上限",
         varRate: 0.3, clean: 50000, rent: planIn.rent, other: 50000, invest: planIn.invest, own: Math.min(planIn.own, planIn.invest), rate: 0.02, years: 10, dep: 10 },
@@ -605,7 +647,7 @@
   });
   renderPlanForm();
 
-  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
+  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); CK = {}; store.set("check1", CK); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 
   // ---------------------------------------------------------------- 計算の前提

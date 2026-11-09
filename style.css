@@ -441,3 +441,10 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 @keyframes tapGlow{0%{box-shadow:0 0 0 0 rgba(255,140,60,.75),0 0 18px 4px rgba(255,140,60,.65);filter:brightness(1.25)}100%{box-shadow:0 0 0 14px rgba(255,140,60,0),0 0 0 0 rgba(255,140,60,0);filter:none}}
 .tap{animation:tapGlow .45s ease-out}
 @media (prefers-reduced-motion:reduce){.tap{animation:none}}
+
+/* 参考チェック（点数なし） */
+.chk-head{margin-top:6px;padding-top:12px;border-top:1px dashed var(--line)}
+.chk-head h4{margin:0 0 2px;font-size:.95rem}
+.chk-head p{margin:0;font-size:.74rem;color:var(--muted)}
+.spec-row.chk{grid-template-columns:1fr}
+.spec-row.chk .seg button.on:first-child{background:var(--surface-2);color:var(--fg);border-color:var(--muted);font-weight:700}
