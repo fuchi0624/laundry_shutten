@@ -436,3 +436,8 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .plan-f small{color:var(--muted)}
 .plan-msg{margin:0;font-size:.8rem;color:var(--muted);min-height:1em}
 @media print{.plan{display:none!important}}
+
+/* ボタンをタップした瞬間に光る（2026-11-09 Yuta希望） */
+@keyframes tapGlow{0%{box-shadow:0 0 0 0 rgba(255,140,60,.75),0 0 18px 4px rgba(255,140,60,.65);filter:brightness(1.25)}100%{box-shadow:0 0 0 14px rgba(255,140,60,0),0 0 0 0 rgba(255,140,60,0);filter:none}}
+.tap{animation:tapGlow .45s ease-out}
+@media (prefers-reduced-motion:reduce){.tap{animation:none}}

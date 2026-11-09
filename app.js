@@ -492,6 +492,12 @@
     cur.shown = true; renderVerdict(); renderPrint(); renderPlanForm();
     $("#verdict").scrollIntoView({ behavior: "smooth", block: "start" });
   });
+  // ボタンをタップした瞬間に光らせる
+  document.addEventListener("pointerdown", (ev) => {
+    const b = ev.target.closest("button, .btn, summary"); if (!b || b.disabled) return;
+    b.classList.remove("tap"); void b.offsetWidth; b.classList.add("tap");
+    b.addEventListener("animationend", () => b.classList.remove("tap"), { once: true });
+  });
   // ---------------------------------------------------------------- 事業計画書（Excel）
   // 「商圏分析と事業計画書の自動作成」と同じ形式・同じ費用の前提で、売上はこの売上予測を使う
   const PLAN0 = { open: "", rent: 150000, invest: 25000000, own: 5000000 };
