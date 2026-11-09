@@ -148,15 +148,15 @@
   ];
   // 参考チェック（2026-11-09 Yuta希望で追加）。まだ点数には入れない。直営店で答え合わせして効いたものだけ点数にする
   const CHECK_DEF = [
-    { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）" },
-    { k: "route", label: "スーパーや駅に行く途中の、生活の通り道にある" },
-    { k: "split", label: "商圏が川・線路・大きな道路で分断されている", bad: true },
-    { k: "weakRival", label: "近くの競合店は古い・小さい・汚い店ばかり" },
-    { k: "rivalBig", label: "近くの競合店に布団が洗える大型洗濯機がある", bad: true },
-    { k: "growing", label: "新しいマンションや住宅地が増えている" },
-    { k: "glass", label: "店内が外から見える（ガラス張り・明るい）" },
-    { k: "cashless", label: "キャッシュレス・アプリで払える" },
-    { k: "h24", label: "24時間営業" },
+    { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）", place: true },
+    { k: "route", label: "スーパーや駅に行く途中の、生活の通り道にある", place: true },
+    { k: "split", label: "商圏が川・線路・大きな道路で分断されている", place: true, bad: true },
+    { k: "weakRival", label: "近くの競合店は古い・小さい・汚い店ばかり", place: true },
+    { k: "rivalBig", label: "近くの競合店に布団が洗える大型洗濯機がある", place: true, bad: true },
+    { k: "growing", label: "新しいマンションや住宅地が増えている", place: true },
+    { k: "glass", label: "店内が外から見える（ガラス張り・明るい）", plan: true },
+    { k: "cashless", label: "キャッシュレス・アプリで払える", plan: true },
+    { k: "h24", label: "24時間営業", plan: true },
   ];
   const CHECK_OPTS = ["わからない", "はい", "いいえ"];
   let CK = { ...(store.get("check1") || {}) };
@@ -261,6 +261,26 @@
     }
     list = list.filter((x) => x.km <= 0.3).sort((a, b) => a.km - b.km);
     return list.length ? { name: list[0].name, m: Math.round(list[0].km * 1000) } : { name: null };
+  }
+
+  // 参考チェックの自動入力（Googleマップ）: 生活の通り道（500m以内のスーパー・ドラッグストア・駅）と、夜の目安（23時以降も開いているお店の数）
+  async function checkAuto(lat, lon) {
+    if (!USE_GOOGLE) return null;
+    const { Place } = await google.maps.importLibrary("places");
+    const near = (types, r, fields) => Place.searchNearby({ fields, includedTypes: types, locationRestriction: { center: { lat, lng: lon }, radius: r },
+      maxResultCount: 20, rankPreference: "DISTANCE", language: "ja", region: "jp" }).then((x) => x.places || []).catch(() => []);
+    const [shops, food] = await Promise.all([
+      near(["supermarket", "drugstore", "train_station", "subway_station"], 500, ["displayName", "location"]),
+      near(["restaurant", "bar", "pub", "night_club", "fast_food_restaurant", "karaoke"], 500, ["displayName", "regularOpeningHours"]),
+    ]);
+    const km = (p) => distKm(lat, lon, p.location.lat(), p.location.lng());
+    const r = shops.map((p) => ({ name: p.displayName, m: Math.round(km(p) * 1000) })).sort((a, b) => a.m - b.m);
+    const late = food.filter((p) => ((p.regularOpeningHours && p.regularOpeningHours.periods) || []).some((x) => {
+      if (!x.close) return true;
+      if (x.close.day !== x.open.day) return true;
+      return x.close.hour * 60 + x.close.minute >= 23 * 60;
+    })).length;
+    return { route: r[0] || null, late, food: food.length };
   }
 
   async function compsOSM(lat, lon, rKm) {
@@ -494,6 +514,8 @@
         b.onclick = () => { CK[d.k] = i; store.set("check1", CK); renderChecks(); if (cur && cur.shown) renderVerdict(); };
         row.querySelector(".seg").appendChild(b);
       });
+      const hint = chkHint(d);
+      if (hint) { const n = document.createElement("small"); n.className = "spec-auto"; n.textContent = hint; row.appendChild(n); }
       box.appendChild(row);
     }
     // 地域の特徴（自動）: 高齢者・子育て世帯の割合
@@ -506,6 +528,18 @@
       auto.innerHTML = `<span class="spec-lb">高齢者・子育て世帯の割合</span><small class="spec-auto">住所を調べると自動で出ます</small>`;
     }
     box.appendChild(auto);
+  }
+  function chkHint(d) {
+    if (d.plan) return "出店するお店の予定で選んでください";
+    const a = cur && cur.chkAuto;
+    if (d.k === "route" && a) return a.route ? `Googleマップで自動判定：${a.route.name}（約${a.route.m}m）が500m以内にあります` : "Googleマップで自動判定：500m以内にスーパー・ドラッグストア・駅が見つかりませんでした";
+    if (d.k === "night" && a) return `Googleマップの目安：500m以内に夜23時以降も開いている飲食店など${a.late}軒（直営店ではこの数だけでは判断できなかったため、現地の様子で選んでください）`;
+    if ((d.k === "weakRival" || d.k === "rivalBig") && cur) {
+      const n1 = cur.comps.filter((c) => c.km <= 1 && !c.closed);
+      return n1.length ? `1km以内の競合 ${n1.length}店（近い店：${n1.slice(0, 2).map((c) => c.name).join("、")}）。商圏調査の一覧から写真や口コミを確認できます` : "1km以内に競合店は見つかりませんでした";
+    }
+    if (d.k === "split") return "地図で、川・線路・大きな道路が商圏を横切っていないか確認してください";
+    return "";
   }
   const checkList = () => CHECK_DEF.map((d) => ({ label: d.label, choice: CHECK_OPTS[CK[d.k] || 0] }));
   function renderSpecPts() {
@@ -811,6 +845,11 @@
       // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
       cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
       if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
+      // 参考チェック: 場所によって変わる項目は、新しい住所では選び直し。生活の通り道は自動で入れる
+      for (const d of CHECK_DEF) if (d.place) CK[d.k] = 0;
+      cur.chkAuto = await checkAuto(g.lat, g.lon).catch(() => null);
+      if (cur.chkAuto) CK.route = cur.chkAuto.route ? 1 : 2;
+      store.set("check1", CK);
       renderSpec();
       active = -1;
       $("#compnote").textContent = cres.note + `（半径${searchKm}kmまで検索）`;
