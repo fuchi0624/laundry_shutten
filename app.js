@@ -561,7 +561,9 @@
     return {
       address: cur.address, matched: cur.matched, lat: cur.lat, lon: cur.lon,
       created: new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" }),
-      r1, r2, ring1, ring2, km1: k1, km2: k2,
+      mode: "forecast",
+      areaRows: [{ label: `第1商圏（半径${r1}km）`, ...ring1, sum: true }, { label: `第2商圏（${r1}〜${r2}km）`, ...ring2, sum: true },
+        { label: "参考: 1km以内", ...k1 }, { label: "参考: 2km以内", ...k2 }],
       comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
       compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
@@ -579,7 +581,7 @@
     btn.disabled = true; msg.textContent = "つくっています…";
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=2");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=3");
       const d = planData();
       const blob = await window.OpenNaviPlan.makePlan(d);
       const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;

@@ -1,8 +1,10 @@
-// 事業計画書（Excel）をブラウザの中で作る。
-// 「商圏分析と事業計画書の自動作成」（shoken.py）と同じシート構成・前提で、売上はオープンナビの売上予測を使う。
+// 事業計画書（Excel）の作り方。ここ1か所で形を決め、2つの道具で使う（2026-11-09 連携）。
+//   ・ランドリーオープンナビ（ブラウザ）: mode "forecast" … 売上はオープンナビの売上予測
+//   ・商圏分析と事業計画書の自動作成（shoken.py → node plan_cli.js）: mode "visit" … 売上は来店率×来店頻度の推計
 // xlsx は JSZip で XML を固めて作る（外部サービスにデータは送らない）。
-(function () {
+(function (root) {
   "use strict";
+  const JSZipLib = () => root.JSZip || (typeof require === "function" ? require(root.__JSZIP_PATH || "jszip") : null);
 
   // ------------------------------------------------------------ 小さな xlsx 書き出し
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -10,10 +12,10 @@
   const colName = (n) => { let s = ""; n++; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 
   // スタイル番号
-  const ST = { n: 0, b: 1, title: 2, h2: 3, head: 4, inText: 5, yen: 6, inYen: 7, inPct: 8, num: 9, bYen: 10, wrap: 11, label: 12, pct: 13, dec2: 14, inNum: 15, bNum: 16, inWrap: 17, note: 18, km: 19 };
+  const ST = { n: 0, b: 1, title: 2, h2: 3, head: 4, inText: 5, yen: 6, inYen: 7, inPct: 8, num: 9, bYen: 10, wrap: 11, label: 12, pct: 13, dec2: 14, inNum: 15, bNum: 16, inWrap: 17, note: 18, km: 19, inDec: 20 };
   const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0&quot;円&quot;"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="0.0&quot;km&quot;"/></numFmts>
+<numFmts count="4"><numFmt numFmtId="164" formatCode="#,##0&quot;円&quot;"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="0.0&quot;km&quot;"/><numFmt numFmtId="167" formatCode="0.0"/></numFmts>
 <fonts count="5">
 <font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>
 <font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>
@@ -28,7 +30,7 @@
 <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
 <border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="20">
+<cellXfs count="21">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
 <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
@@ -49,6 +51,7 @@
 <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>
 <xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>
 <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="167" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -87,8 +90,8 @@
     }
   }
 
-  async function toBlob(sheets) {
-    const zip = new window.JSZip();
+  async function toBlob(sheets, type = "blob") {
+    const Z = JSZipLib(); const zip = new Z();
     zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
     zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -101,7 +104,7 @@
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
     zip.file("xl/styles.xml", STYLES_FIXED);
     sheets.forEach((s, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, s.xml()));
-    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
+    return zip.generateAsync({ type, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
   }
 
   // ------------------------------------------------------------ 事業計画書の中身
@@ -109,22 +112,24 @@
   const yen = (y) => Math.round(y).toLocaleString("ja-JP") + "円";
 
   function build(d) {
-    const A = d.inputs;
+    const A = d.inputs, visit = d.mode === "visit";
+    const areaRows = d.areaRows;
     // 前提条件の行（B列）。ここを変えると全シートが計算し直される
     const P = {};
     const items = [
       ["店舗名", A.name, ST.inText],
-      ["業種", "コインランドリー", ST.inText],
+      ["業種", A.gyoshu || "コインランドリー", ST.inText],
       ["所在地", d.address, ST.inText],
       ["所在地（住所検索の結果）", d.matched, ST.inText],
       ["緯度", +d.lat.toFixed(6), ST.inNum],
       ["経度", +d.lon.toFixed(6), ST.inNum],
       ["開業予定日", A.open || "（未定）", ST.inText],
+      ...(visit ? [["推計の対象（世帯 / 人口）", d.visit.base, ST.inText]] : []),
       ["月間営業日数", 30, ST.inNum],
       ["客単価", A.price, ST.inYen],
-      ["月の売上（軌道に乗った3年目）", A.sales, ST.inYen],
-      ["1年目の売上の割合（3年目に対して）", 0.8, ST.inPct],
-      ["2年目の売上の割合", 0.92, ST.inPct],
+      ["月の売上（軌道に乗った3年目）", A.sales, visit ? ST.bYen : ST.inYen],
+      ["1年目の売上の割合（3年目に対して）", A.ramp ? A.ramp[0] : 0.8, ST.inPct],
+      ["2年目の売上の割合", A.ramp ? A.ramp[1] : 0.92, ST.inPct],
       ["3年目の売上の割合", 1, ST.inPct],
       ["変動費率（水道光熱費・洗剤など）", A.varRate, ST.inPct],
       ["清掃・管理の委託費（月）", A.clean, ST.inYen],
@@ -139,11 +144,34 @@
     ];
     const pre = new Sheet("前提条件").width("A", 46).width("B", 34).width("C", 40);
     pre.set("A1", "前提条件（黄色のセルを変えると、全部のシートが計算し直されます）", ST.title);
-    items.forEach(([label, v, s], i) => { const r = 3 + i; pre.set("A" + r, label, ST.label).set("B" + r, v, s); P[label] = { ref: `前提条件!$B$${r}`, v }; });
+    items.forEach(([label, v, s], i) => { const r = 3 + i; pre.set("A" + r, label, ST.label).set("B" + r, v, s); P[label] = { ref: `前提条件!$B$${r}`, v, r }; });
     const n0 = 3 + items.length + 1;
-    pre.set("A" + n0, "※月の売上はランドリーオープンナビの売上予測（ランドリープレス直営店の売上実績をもとに算出）から入れています。費用は「商圏分析と事業計画書の自動作成」と同じ前提です。実際の見積もり・契約条件に合わせて変えてください。", ST.note);
+    pre.set("A" + n0, visit
+      ? "※月の売上は「来店客数」シートの推計（商圏内の対象数 × 来店率 × 来店頻度 × 客単価）から自動で入ります。費用は実際の見積もり・契約条件に合わせて変えてください。"
+      : "※月の売上はランドリーオープンナビの売上予測（ランドリープレス直営店の売上実績をもとに算出）から入れています。費用は実際の見積もり・契約条件に合わせて変えてください。", ST.note);
     pre.merges.push(`A${n0}:C${n0}`); pre.heights[n0] = 48;
     const p = (k) => P[k].ref, pv = (k) => P[k].v;
+    // 来店率×来店頻度で売上を出す場合（shoken.py から）: 商圏ごとの来店率・来店頻度の表
+    let rateRows = [], visitTot = 0;
+    if (visit) {
+      const r0 = n0 + 2;
+      pre.set("A" + r0, "商圏ごとの来店率・来店頻度", ST.h2);
+      ["商圏（ドーナツ状の範囲）", "来店率（対象のうち来店客になる割合）", "来店頻度（回/月）"].forEach((h, i) => pre.set(colName(i) + (r0 + 1), h, ST.head));
+      d.visit.rings.forEach((g, k) => {
+        const rr = r0 + 2 + k; rateRows.push(rr);
+        pre.set("A" + rr, g.label, ST.label).set("B" + rr, g.rate, ST.inPct).set("C" + rr, g.freq, ST.inDec);
+      });
+      const nn = r0 + 2 + d.visit.rings.length;
+      pre.set("A" + nn, "※来店率・来店頻度の初期値は仮置きです。競合店の数、駅・幹線道路からの距離に合わせて調整してください。", ST.note);
+      pre.merges.push(`A${nn}:C${nn}`); pre.heights[nn] = 30;
+      // 推計（キャッシュ値）
+      const byPop = d.visit.base === "人口";
+      visitTot = d.visit.rings.reduce((a, g) => a + areaRows[g.row][byPop ? "pop" : "hh"] * g.rate * g.freq, 0);
+      P["月の売上（軌道に乗った3年目）"].v = visitTot * pv("客単価");
+      const rs = P["月の売上（軌道に乗った3年目）"].r;
+      pre.set("B" + rs, Math.round(P["月の売上（軌道に乗った3年目）"].v), ST.bYen, `来店客数!F${5 + d.visit.rings.length}*${p("客単価")}`);
+      pre.set("C" + rs, "「来店客数」シートの推計から自動", ST.note);
+    }
 
     // ---- 計算（Excelの数式と同じ計算をして、開いた瞬間から数字が見えるようにする）
     const ramps = ["1年目の売上の割合（3年目に対して）", "2年目の売上の割合", "3年目の売上の割合"];
@@ -171,29 +199,59 @@
     area.set("A1", "商圏分析（令和2年国勢調査 500mメッシュを商圏の円で按分）", ST.title);
     area.set("A2", `中心: ${d.matched}（緯度 ${d.lat.toFixed(6)} / 経度 ${d.lon.toFixed(6)}）`);
     ["範囲", "人口", "世帯数", "単身世帯", "6歳未満の子がいる世帯", "65歳以上がいる世帯", "平均世帯人員"].forEach((h, i) => area.set(colName(i) + "4", h, ST.head));
-    const ar = [[`第1商圏（半径${d.r1}km）`, d.ring1], [`第2商圏（${d.r1}〜${d.r2}km）`, d.ring2], ["参考: 1km以内", d.km1], ["参考: 2km以内", d.km2]];
-    ar.forEach(([label, s], i) => {
+    const opt = (v) => (v == null ? "−" : Math.round(v));
+    areaRows.forEach((s, i) => {
       const r = 5 + i;
-      area.set("A" + r, label, ST.label).set("B" + r, Math.round(s.pop), ST.num).set("C" + r, Math.round(s.hh), ST.num)
-        .set("D" + r, Math.round(s.single), ST.num).set("E" + r, Math.round(s.kids), ST.num).set("F" + r, Math.round(s.senior), ST.num)
+      area.set("A" + r, s.label, ST.label).set("B" + r, Math.round(s.pop), ST.num).set("C" + r, Math.round(s.hh), ST.num)
+        .set("D" + r, opt(s.single), ST.num).set("E" + r, opt(s.kids), ST.num).set("F" + r, opt(s.senior), ST.num)
         .set("G" + r, s.hh ? +(s.pop / s.hh).toFixed(2) : 0, ST.dec2, `IF(C${r}=0,0,B${r}/C${r})`);
     });
-    area.set("A10", "周辺のコインランドリー（候補地から近い順）", ST.h2);
-    ["番号", "店名", "距離", "範囲", "住所"].forEach((h, i) => area.set(colName(i) + "11", h, ST.head));
-    area.merges.push("E11:G11");
-    const comps = d.comps.slice(0, 40);
+    const c0 = 5 + areaRows.length + 1;
+    area.set("A" + c0, "周辺のコインランドリー（候補地から近い順）", ST.h2);
+    ["番号", "店名", "距離", "範囲", "住所"].forEach((h, i) => area.set(colName(i) + (c0 + 1), h, ST.head));
+    area.merges.push(`E${c0 + 1}:G${c0 + 1}`);
+    const comps = (d.comps || []).slice(0, 40);
     comps.forEach((c, i) => {
-      const r = 12 + i;
+      const r = c0 + 2 + i;
       area.set("A" + r, i + 1, ST.num).set("B" + r, c.name, ST.label).set("C" + r, +c.km.toFixed(2), ST.km).set("D" + r, c.ring, ST.n).set("E" + r, c.address || "", ST.n);
       area.merges.push(`E${r}:G${r}`);
     });
-    const rEnd = 12 + Math.max(1, comps.length) + 1;
-    if (!comps.length) area.set("B12", "見つかりませんでした");
-    area.set("A" + rEnd, `出典: 総務省統計局「令和2年国勢調査 地域メッシュ統計（500mメッシュ）」を商圏の円で按分。他社店舗: ${d.compSrc}（登録されていない店もあります）。`, ST.note);
+    const rEnd = c0 + 2 + Math.max(1, comps.length) + 1;
+    if (!comps.length) area.set("B" + (c0 + 2), d.comps ? "見つかりませんでした" : "（ここに周辺の競合店を記入）", d.comps ? ST.n : ST.inText);
+    area.set("A" + rEnd, "出典: 総務省統計局「令和2年国勢調査 地域メッシュ統計（500mメッシュ）」を商圏の円で按分。" + (d.compSrc ? `他社店舗: ${d.compSrc}（登録されていない店もあります）。` : ""), ST.note);
     area.merges.push(`A${rEnd}:G${rEnd}`); area.heights[rEnd] = 36;
 
+    // ---- 来店客数（来店率×来店頻度で推計する場合）
+    let fc = null, dayRef;
+    if (visit) {
+      const vs = fc = new Sheet("来店客数").width("A", 24).width("B", 16).width("C", 12).width("D", 16).width("E", 16).width("F", 20);
+      vs.set("A1", "来店客数の推計", ST.title);
+      vs.set("A2", "月間来店客数 ＝ 商圏内の対象数（世帯または人口）× 来店率 × 来店頻度", ST.note);
+      ["商圏", "対象数", "来店率", "来店客（人）", "来店頻度（回/月）", "月間来店客数（延べ）"].forEach((h, i) => vs.set(colName(i) + "4", h, ST.head));
+      const byPop = d.visit.base === "人口", base = p("推計の対象（世帯 / 人口）");
+      d.visit.rings.forEach((g, k) => {
+        const r = 5 + k, ar = 5 + g.row, a = areaRows[g.row], tgt = byPop ? a.pop : a.hh;
+        vs.set("A" + r, g.label, ST.label)
+          .set("B" + r, Math.round(tgt), ST.num, `IF(${base}="人口",商圏分析!B${ar},商圏分析!C${ar})`)
+          .set("C" + r, g.rate, ST.pct, `前提条件!$B$${rateRows[k]}`)
+          .set("D" + r, Math.round(tgt * g.rate), ST.num, `B${r}*C${r}`)
+          .set("E" + r, g.freq, ST.dec2, `前提条件!$C$${rateRows[k]}`)
+          .set("F" + r, Math.round(tgt * g.rate * g.freq), ST.num, `D${r}*E${r}`);
+      });
+      const t = 5 + d.visit.rings.length;
+      vs.set("A" + t, "合計", ST.label).set("F" + t, Math.round(visitTot), ST.bNum, `SUM(F5:F${t - 1})`);
+      const days = pv("月間営業日数"), price = pv("客単価");
+      [["1日平均来店客数", visitTot / days, `F${t}/${p("月間営業日数")}`, ST.bNum],
+       ["年間来店客数（延べ）", visitTot * 12, `F${t}*12`, ST.num],
+       ["月間売上見込み（3年目）", visitTot * price, `F${t}*${p("客単価")}`, ST.bYen],
+       ["年間売上見込み（3年目）", visitTot * 12 * price, `F${t}*12*${p("客単価")}`, ST.yen]].forEach(([l, v, f, s], i) => {
+        vs.set("A" + (t + 2 + i), l, ST.label).set("B" + (t + 2 + i), Math.round(v), s, f);
+      });
+      dayRef = `来店客数!B${t + 2}`;
+    }
     // ---- 売上予測（オープンナビの判定）
-    const fc = new Sheet("売上予測").width("A", 40).width("B", 22).width("C", 46);
+    if (!visit) {
+    fc = new Sheet("売上予測").width("A", 40).width("B", 22).width("C", 46);
     fc.set("A1", "売上予測（ランドリーオープンナビ）", ST.title);
     fc.set("A2", "ランドリープレス直営店の売上実績をもとに算出（軌道に乗った3年目の目安）", ST.note);
     fc.set("A4", "判定", ST.label).set("B4", `${d.est.mark} ${d.est.markText}`, ST.b);
@@ -213,6 +271,8 @@
     d.spec.forEach((x) => { fc.set("A" + r, x.label, ST.label).set("B" + r, x.choice, ST.n).set("C" + r, x.pt, ST.n); r++; });
     fc.set("A" + (r + 1), "※お店の条件は合計4点ごとに、売上の見込み（20万円きざみ）を1段階上げ下げしています。予測はあくまで目安で、実際の売上を約束するものではありません。", ST.note);
     fc.merges.push(`A${r + 1}:C${r + 1}`); fc.heights[r + 1] = 36;
+    dayRef = "売上予測!B9";
+    }
 
     // ---- 収支計画（3か年）
     const pl = new Sheet("収支計画").width("A", 46).width("B", 18).width("C", 18).width("D", 18);
@@ -256,26 +316,30 @@
     gap();
     sm.set("A" + i, "1. 事業概要", ST.h2); i++;
     line("店舗名", pv("店舗名"), ST.n, p("店舗名"));
-    line("業種", "コインランドリー", ST.n, p("業種"));
+    line("業種", pv("業種"), ST.n, p("業種"));
     line("所在地", d.address, ST.n, p("所在地"));
     line("開業予定日", pv("開業予定日"), ST.n, p("開業予定日"));
-    line("事業内容", "セルフサービス式のコインランドリー（洗濯乾燥機・乾燥機・布団が洗える大型洗濯機）。年中無休で営業し、清掃・管理は委託する。", ST.inWrap);
-    line("ターゲット顧客", d.target, ST.inWrap);
+    line("事業内容", d.business || "セルフサービス式のコインランドリー（洗濯乾燥機・乾燥機・布団が洗える大型洗濯機）。年中無休で営業し、清掃・管理は委託する。", ST.inWrap);
+    line("ターゲット顧客", d.target || "（ここに主な顧客層を記入）", ST.inWrap);
     gap();
     sm.set("A" + i, "2. 立地・商圏分析", ST.h2); i++;
-    line(`第1商圏（半径${d.r1}km）`, `人口 ${Math.round(d.ring1.pop).toLocaleString("ja-JP")}人 / 世帯数 ${Math.round(d.ring1.hh).toLocaleString("ja-JP")}世帯（単身世帯 ${Math.round(d.ring1.single).toLocaleString("ja-JP")}世帯）`);
-    line(`第2商圏（${d.r1}〜${d.r2}km）`, `人口 ${Math.round(d.ring2.pop).toLocaleString("ja-JP")}人 / 世帯数 ${Math.round(d.ring2.hh).toLocaleString("ja-JP")}世帯`);
+    const jp = (v) => Math.round(v).toLocaleString("ja-JP");
+    areaRows.filter((s) => s.sum).forEach((s) => line(s.label, `人口 ${jp(s.pop)}人 / 世帯数 ${jp(s.hh)}世帯` + (s.single != null ? `（単身世帯 ${jp(s.single)}世帯）` : "")));
     line("商圏の考察", d.areaText);
-    line("競合状況", d.compText, ST.inWrap);
+    line("競合状況", d.compText || "（ここに周辺の競合店の数・特徴を記入）", ST.inWrap);
     line("出典", "総務省統計局 令和2年国勢調査 地域メッシュ統計（500mメッシュ）を商圏の円で按分集計");
     gap();
     sm.set("A" + i, "3. 売上見込み", ST.h2); i++;
-    line("売上予測（3年目）", `${d.est.mark} ${d.est.bandText}（${d.est.markText}）`);
-    line("予測の根拠", `ランドリープレス直営店の売上実績をもとに算出。${d.est.baseText.replace(/^/, "商圏だけで見た基準 ")}、お店の条件 ${d.est.ptText}。`);
-    line("計画に使う月の売上", pv("月の売上（軌道に乗った3年目）"), ST.yen, p("月の売上（軌道に乗った3年目）"));
+    if (visit) {
+      line("推計方法", `商圏内の${d.visit.base}数に、距離帯ごとの来店率と月間来店頻度を掛けて推計した。`, ST.wrap, `"商圏内の"&${p("推計の対象（世帯 / 人口）")}&"数に、距離帯ごとの来店率と月間来店頻度を掛けて推計した。"`);
+    } else {
+      line("売上予測（3年目）", `${d.est.mark} ${d.est.bandText}（${d.est.markText}）`);
+      line("予測の根拠", `ランドリープレス直営店の売上実績をもとに算出。${d.est.baseText.replace(/^/, "商圏だけで見た基準 ")}、お店の条件 ${d.est.ptText}。`);
+    }
+    line(visit ? "月の売上（3年目）" : "計画に使う月の売上", pv("月の売上（軌道に乗った3年目）"), ST.yen, p("月の売上（軌道に乗った3年目）"));
     line("1日平均の来店客数", Math.round(dayCust3), ST.num, `${p("月の売上（軌道に乗った3年目）")}/${p("客単価")}/${p("月間営業日数")}`);
     line("客単価", pv("客単価"), ST.yen, p("客単価"));
-    line("立ち上がり", "1年目は3年目の80%、2年目は92%（直営店の売上の伸び方より）");
+    line("立ち上がり", `1年目は3年目の${Math.round(pv(ramps[0]) * 100)}%、2年目は${Math.round(pv(ramps[1]) * 100)}%` + (A.ramp ? "" : "（直営店の売上の伸び方より）"));
     gap();
     sm.set("A" + i, "4. 収支計画", ST.h2); i++;
     for (const [label, rr, key] of [["売上高", 4, "sales"], ["営業利益", 12, "op"], ["経常利益", 14, "ord"]]) {
@@ -288,7 +352,7 @@
     line("採算性の判断", ok
       ? `3年目の1日来店客数（約${Math.round(dayCust3)}人）は損益分岐点（約${Math.round(bepDay)}人）を上回っており、採算が見込める。`
       : `3年目の1日来店客数（約${Math.round(dayCust3)}人）は損益分岐点（約${Math.round(bepDay)}人）を下回るため、家賃・初期投資・集客策の見直しが必要。`, ST.wrap,
-      `IF(売上予測!B9>=収支計画!B20,"3年目の1日来店客数（約"&${T("売上予測!B9")}&"人）は損益分岐点（約"&${T("収支計画!B20")}&"人）を上回っており、採算が見込める。","3年目の1日来店客数（約"&${T("売上予測!B9")}&"人）は損益分岐点（約"&${T("収支計画!B20")}&"人）を下回るため、家賃・初期投資・集客策の見直しが必要。")`);
+      `IF(${dayRef}>=収支計画!B20,"3年目の1日来店客数（約"&${T(dayRef)}&"人）は損益分岐点（約"&${T("収支計画!B20")}&"人）を上回っており、採算が見込める。","3年目の1日来店客数（約"&${T(dayRef)}&"人）は損益分岐点（約"&${T("収支計画!B20")}&"人）を下回るため、家賃・初期投資・集客策の見直しが必要。")`);
     gap();
     sm.set("A" + i, "5. 資金計画", ST.h2); i++;
     line("初期投資額", pv("初期投資額"), ST.yen, p("初期投資額"));
@@ -297,18 +361,20 @@
     line("資金の過不足", pv("自己資金") + pv("借入金") - pv("初期投資額"), ST.yen, `${p("自己資金")}+${p("借入金")}-${p("初期投資額")}`);
     gap();
     sm.set("A" + i, "6. 強み・集客策・リスク", ST.h2); i++;
-    line("強み", d.strengths, ST.inWrap);
+    line("強み", d.strengths || "（ここに記入）", ST.inWrap);
     line("集客策", "オープン時のチラシ・のぼり、Googleマップへの登録と写真の掲載、LINE公式アカウントでのお得情報の配信、布団・毛布など季節の大物洗いの訴求。", ST.inWrap);
-    line("リスクと対策", d.risks, ST.inWrap);
+    line("リスクと対策", d.risks || "（ここに記入）", ST.inWrap);
     gap();
     sm.set("A" + i, "※黄色の欄は自由に書き換えてください。数字は「前提条件」シートを変えると計算し直されます。", ST.note); sm.merges.push(`A${i}:B${i}`); sm.heights[i] = 30;
 
     return [sm, pre, area, fc, pl];
   }
 
-  async function makePlan(d) {
-    if (!window.JSZip) throw new Error("jszip");
-    return toBlob(build(d));
+  async function makePlan(d, type = "blob") {
+    if (!JSZipLib()) throw new Error("jszip");
+    return toBlob(build(d), type);
   }
-  window.OpenNaviPlan = { makePlan, build };
-})();
+  const api = { makePlan, build };
+  root.OpenNaviPlan = api;
+  if (typeof module === "object" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);
