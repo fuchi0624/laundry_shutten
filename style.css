@@ -487,7 +487,8 @@ body.pv-open{overflow:hidden}
 .pv-sub{margin:6px 0 0;font-size:.78rem;color:#cdbcae}
 .pv-kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pv-kpi div{display:grid;gap:2px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
-.pv-kpi div:first-child{grid-column:1 / 3;border-color:var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface))}
+.pv-kpi div:first-child{grid-column:1 / 3;}
+.pv-kpi div:first-child{border-color:var(--accent);background:linear-gradient(135deg,var(--accent-soft),var(--surface))}
 .pv-kpi span{font-size:.74rem;color:var(--muted)}
 .pv-kpi b{font-family:var(--f-num);font-size:1.45rem;line-height:1.2}
 .pv-kpi div:first-child b{font-size:1.8rem;color:var(--accent-deep)}
@@ -500,10 +501,10 @@ body.pv-open{overflow:hidden}
 .pv-judge.ng{border-color:#d9534f;background:color-mix(in srgb,#d9534f 10%,var(--surface))}
 .pv-doc h2{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 8px;padding-left:10px;border-left:4px solid var(--accent);font-family:var(--f-display);font-size:1.05rem}
 .pv-doc h2 small{font-size:.72rem;color:var(--muted);font-weight:400}
-.pv-tbl{width:100%;border-collapse:collapse;font-size:.86rem;background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
-.pv-tbl th,.pv-tbl td{padding:8px 10px;border-bottom:1px solid var(--line)}
-.pv-tbl thead th{background:var(--ink);color:#fff;font-size:.78rem;font-weight:700;text-align:right}
-.pv-tbl tbody th{text-align:left;font-weight:500;white-space:nowrap}
+.pv-tbl{width:100%;border-collapse:collapse;font-size:.8rem;background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.pv-tbl th,.pv-tbl td{padding:7px 6px;border-bottom:1px solid var(--line)}
+.pv-tbl thead th{background:var(--ink);color:#fff;font-size:.72rem;font-weight:700;text-align:right;white-space:nowrap}
+.pv-tbl tbody th{text-align:left;font-weight:500}
 .pv-tbl td{text-align:right;font-family:var(--f-num)}
 .pv-tbl .pv-strong th,.pv-tbl .pv-strong td{font-weight:800;background:var(--surface-2)}
 .pv-tbl .pv-ind{padding-left:22px;font-size:.78rem;color:var(--muted)}

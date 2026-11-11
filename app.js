@@ -358,6 +358,13 @@
     13: "150㎡（約45坪）以下なら建てられることが多い地域です。役所で確認してください",
     0: "用途地域の指定がない場所です。市街化調整区域だと建てられないので、役所で確認してください",
   };
+  function zoneText() {
+    const z = cur && cur.zone; if (!z) return "";
+    const code = z.none || !z.here ? 0 : z.here.code;
+    if (!code) return "用途地域の指定なし（市街化調整区域なら出店できないため、役所で確認）";
+    const word = { ok: "出店できます", chk: "要確認", ng: "原則出店できません" }[ZONE_JUDGE(code)];
+    return `${ZONES[code][0]}（建ぺい率 ${z.here.kp}%・容積率 ${z.here.yr}%）　コインランドリー：${word}`;
+  }
   function renderZone() {
     const box = $("#zone"); if (!box) return;
     const z = cur && cur.zone;
@@ -656,7 +663,7 @@
   // ---------------------------------------------------------------- 事業計画書（Excel）
   // 「商圏分析と事業計画書の自動作成」と同じ形式・同じ費用の前提で、売上はこの売上予測を使う
   const PLAN0 = { open: "", rent: 150000, invest: 25000000, own: 5000000 };
-  const PLAN_FIELDS = [["name", "店舗名", "text"], ["open", "開業予定日", "text", "例: 2027年4月"], ["rent", "地代・家賃（月）", "yen"], ["invest", "初期投資額", "yen"], ["own", "自己資金", "yen"]];
+  const PLAN_FIELDS = [["name", "店舗名", "text"], ["client", "客先名（表紙に入ります・任意）", "text", "例: 株式会社〇〇"], ["open", "開業予定日", "text", "例: 2027年4月"], ["rent", "家賃（月）", "yen"]];
   let planIn = { ...PLAN0, ...(store.get("plan") || {}) };
   const loadScript = (src) => new Promise((ok, ng) => { const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = ng; document.head.appendChild(t); });
   function renderPlanForm() {
@@ -668,7 +675,7 @@
       l.querySelector("span").textContent = label;
       const inp = l.querySelector("input"); inp.dataset.k = k;
       if (ph) inp.placeholder = ph;
-      const v = k === "name" ? (planIn.name || "") : planIn[k];
+      const v = k === "name" ? (planIn.name || "") : (planIn[k] ?? "");
       inp.value = type === "yen" ? fmt(v) : v;
       if (k === "name") inp.placeholder = defaultName();
       inp.addEventListener("change", () => {
@@ -721,7 +728,10 @@
       created: new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" }),
       mode: "forecast",
       areaRows: [{ label: `第1商圏（半径${r1}km）`, ...ring1, sum: true }, { label: `第2商圏（${r1}〜${r2}km）`, ...ring2, sum: true },
-        { label: "参考: 1km以内", ...k1 }, { label: "参考: 2km以内", ...k2 }],
+        { label: "参考: 500m以内", ...sumWithin(0.5) }, { label: "参考: 1km以内", ...k1 }, { label: "参考: 2km以内", ...k2 }],
+      bands: [["0〜500m", h05], ["500m〜1km", sumWithin(1, 0.5).hh], ["1〜2km", sumWithin(2, 1).hh]],
+      zone: zoneText(),
+      keikaku: { client: planIn.client || "", area: Math.round([10, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5][S.tsubo] * 3.3058 * 10) / 10, park: [0, 3, 5, 7, 10, 11][S.park] },
       comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
       compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
@@ -739,10 +749,11 @@
     btn.disabled = true; msg.textContent = "つくっています…";
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=5");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=6");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=1");
       const d = planData();
-      const blob = await window.OpenNaviPlan.makePlan(d);
-      const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
+      const blob = await window.OpenNaviKeikaku.makeKeikaku(d);
+      const fname = `出店計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
       const file = new File([blob], fname, { type: blob.type });
       // スマホは「共有」からファイルに保存・LINEやメールで送れるように
       if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) {
@@ -761,43 +772,53 @@
     const msg = $("#planMsg");
     document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
     try {
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=5");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=6");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=1");
       showPlanView(planData());
     } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }
   });
   function showPlanView(d) {
-    const c = window.OpenNaviPlan.calc(d), A = d.inputs, Y = c.Y;
+    // エクセル（出店計画書）と同じ計算を使う
+    const c = window.OpenNaviKeikaku.build(d).calc, A = d.inputs, Y = c.Y;
     const h = (t) => String(t).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[m]);
-    const mn = (v) => { const x = Math.round(v / 1e4); return (x < 0 ? "−" : "") + Math.abs(x).toLocaleString("ja-JP"); };
-    const loan = Math.max(0, A.invest - A.own);
-    const row = (label, k, strong) => `<tr${strong ? ' class="pv-strong"' : ""}><th>${label}</th>${Y.map((y) => `<td class="${(typeof k === "function" ? k(y) : y[k]) < 0 ? "neg" : ""}">${mn(typeof k === "function" ? k(y) : y[k])}</td>`).join("")}</tr>`;
-    const fx = (y) => y.fx.reduce((a, b) => a + b, 0);
+    const m4 = (v) => { const x = Math.round(v); return (x < 0 ? "−" : "") + Math.abs(x).toLocaleString("ja-JP"); };
+    const mn = (v) => m4(v / 1e4);
+    const show = [0, 1, 2, 4, 9];
+    const row = (label, k, strong) => `<tr${strong ? ' class="pv-strong"' : ""}><th>${label}</th>${show.map((i) => `<td class="${Y[i][k] < 0 ? "neg" : ""}">${m4(Y[i][k])}</td>`).join("")}</tr>`;
     const list = (t, txt) => { const it = String(txt || "").split("。").map((x) => x.trim()).filter(Boolean); return it.length ? `<h2>${t}</h2><ul class="pv-list">${it.map((x) => `<li>${h(x)}</li>`).join("")}</ul>` : ""; };
     const areas = d.areaRows.filter((r) => r.sum).map((r) => `<li><span>${h(r.label)}</span><b>${fmt(r.hh)}<small>世帯</small></b><em>人口 ${fmt(r.pop)}人</em></li>`).join("");
+    const ok = Y[2].prof > 0;
     const box = document.createElement("div"); box.id = "planView"; box.className = "pv";
     box.innerHTML = `
       <div class="pv-bar"><button type="button" class="btn ghost" data-a="close">閉じる</button><button type="button" class="btn" data-a="pdf">PDFで保存</button></div>
       <article class="pv-doc">
-        <header class="pv-hero"><p class="pv-eye">BUSINESS PLAN</p><h1>事業計画書</h1><p class="pv-name">${h(A.name)}</p>
-          <p class="pv-sub">${h(d.address)}${A.open ? "　開業予定 " + h(A.open) : ""}</p></header>
+        <header class="pv-hero"><p class="pv-eye">STORE OPENING PLAN</p><h1>出店計画書</h1><p class="pv-name">${h(A.name)}</p>
+          <p class="pv-sub">${h(d.address)}${A.open ? "　開業予定 " + h(A.open) : ""}${planIn.client ? "<br>" + h(planIn.client) + "　御中" : ""}</p></header>
         <section class="pv-kpi">
-          <div><span>売上の見込み（3年目）</span><b>${h(d.est.bandText)}</b><small>${h(d.est.mark)} ${h(d.est.markText)}</small></div>
-          <div><span>3年目の経常利益（年）</span><b class="${Y[2].ord < 0 ? "neg" : ""}">${mn(Y[2].ord)}<small>万円</small></b></div>
-          <div><span>1日の来店客数（3年目）</span><b>約${Math.round(c.dayCust3)}<small>人</small></b><small>損益分岐 約${Math.round(c.bepDay)}人</small></div>
+          <div><span>予測月商（開業3年目）</span><b>${mn(c.sales)}<small>万円</small></b><small>${h(d.est.mark)} ${h(d.est.markText)}（${h(d.est.bandText)}）</small></div>
+          <div><span>初期投資（税込）</span><b>${mn(c.invT)}<small>万円</small></b><small>機械・工事・内装の合計</small></div>
+          <div><span>1日の利用見込み</span><b>${Math.round(c.sales / A.price / 30)}<small>回</small></b><small>1回${fmt(A.price)}円換算</small></div>
+          <div><span>累計黒字化</span><b>${c.payback ? c.payback + "<small>年目</small>" : "—"}</b><small>返済・家賃を差し引き後</small></div>
+          <div><span>10年間の累計手残り</span><b class="${c.cum10 < 0 ? "neg" : ""}">${m4(c.cum10)}<small>万円</small></b><small>借入10年返済で試算</small></div>
         </section>
-        <p class="pv-judge ${c.ok ? "ok" : "ng"}">${c.ok ? "採算が見込めます" : "採算に注意が必要です"}<small>${c.ok ? `1日の来店客数が損益分岐点（約${Math.round(c.bepDay)}人）を上回っています` : `1日の来店客数が損益分岐点（約${Math.round(c.bepDay)}人）を下回ります。家賃・初期投資・集客策を見直してください`}</small></p>
+        <p class="pv-judge ${ok ? "ok" : "ng"}">${ok ? "3年目は月" + m4(Y[2].prof / 12) + "万円の手残りが見込めます" : "3年目も手残りがマイナスです"}<small>赤字にならない月の売上は${m4(c.be)}万円（予測の${Math.round(c.be * 1e4 / c.sales * 100)}%）です</small></p>
         <h2>収支計画<small>単位：万円</small></h2>
-        <table class="pv-tbl"><thead><tr><th></th><th>1年目</th><th>2年目</th><th>3年目</th></tr></thead><tbody>
-          ${row("売上高", "sales", true)}${row("変動費", "vc")}${row("固定費", fx)}<tr><th class="pv-ind">うち家賃</th>${Y.map((y) => `<td>${mn(y.fx[1])}</td>`).join("")}</tr><tr><th class="pv-ind">うち減価償却</th>${Y.map((y) => `<td>${mn(y.fx[3])}</td>`).join("")}</tr>
-          ${row("営業利益", "op", true)}${row("支払利息", "interest")}${row("経常利益", "ord", true)}${row("借入金の返済", "repay")}${row("手元に残るお金", "cf", true)}
+        <table class="pv-tbl"><thead><tr><th></th><th>初年度</th><th>2年目</th><th>3年目</th><th>5年目</th><th>10年目</th></tr></thead><tbody>
+          ${row("売上", "rev", true)}${row("ランニングコスト", "cost")}${row("家賃", "rnt")}${row("借入返済（機械・工事）", "l1")}${row("借入返済（内装・電気）", "l2")}${row("スマラン他", "f")}
+          ${row("手残り", "prof", true)}${row("手残りの累計", "cum", true)}
         </tbody></table>
-        <p class="pv-note">売上は${h(A.salesNote)}を使っています。1年目は3年目の80%、2年目は92%です。</p>
+        <p class="pv-note">売上は${h(A.salesNote)}を使っています。初年度80%、2年目92%、3年目100%、4年目109%、5年目以降111%（当社直営店の平均的な立ち上がり）。初期投資の全額を借り入れると仮定しています。</p>
+        <h2>もしもの試算<small>単位：万円</small></h2>
+        <table class="pv-tbl"><thead><tr><th></th><th>3年目の月の手残り</th><th>10年累計</th></tr></thead><tbody>
+          ${c.scen.map((x) => `<tr><th>${h(x.name)}</th><td class="${x.m3p < 0 ? "neg" : ""}">${m4(x.m3p)}</td><td class="${x.cum < 0 ? "neg" : ""}">${m4(x.cum)}</td></tr>`).join("")}
+        </tbody></table>
         <h2>商圏</h2><ul class="pv-area">${areas}</ul>
+        <p class="pv-note">${h(d.zone ? "用途地域：" + d.zone : "")}</p>
         <p class="pv-note">${h(d.compText || "")}</p>
-        <h2>資金計画</h2>
-        <dl class="pv-dl"><dt>初期投資</dt><dd>${mn(A.invest)}万円</dd><dt>自己資金</dt><dd>${mn(A.own)}万円</dd><dt>借入金</dt><dd>${mn(loan)}万円（金利${A.rate * 100}%・${A.years}年返済）</dd><dt>家賃（月）</dt><dd>${mn(A.rent)}万円</dd><dt>損益分岐点</dt><dd>月の売上 ${mn(c.bep / 12)}万円</dd></dl>
+        <h2>初期投資と借入</h2>
+        <dl class="pv-dl"><dt>初期投資（税込）</dt><dd>${mn(c.invT)}万円</dd><dt>月々の返済</dt><dd>${mn(c.pay1 + c.pay2)}万円（10年・年3%）</dd><dt>家賃（月）</dt><dd>${mn(A.rent)}万円</dd><dt>機械構成</dt><dd>洗濯乾燥機${c.counts.wd}台・乾燥機${c.counts.dr}台・洗濯機${c.counts.wa}台</dd><dt>競合への強さ</dt><dd>${c.defLv}（約${c.tsubo.toFixed(1)}坪）</dd></dl>
         ${list("強み", d.strengths)}${list("リスクと対策", d.risks)}
-        <footer class="pv-foot">ランドリーオープンナビ　｜　売上の見込みはランドリープレスの売上実績をもとに算出　｜　人口・世帯数は令和2年国勢調査　｜　作成日 ${h(d.created || "")}</footer>
+        <footer class="pv-foot">ランドリーオープンナビ　｜　売上の見込みはランドリープレスの売上実績をもとに算出　｜　人口・世帯数は令和2年国勢調査　｜　作成日 ${h(d.created || "")}　｜　機械構成・工事費などの細かい数字はエクセルで変えられます</footer>
       </article>`;
     document.getElementById("planView")?.remove();
     document.body.appendChild(box); document.body.classList.add("pv-open");
