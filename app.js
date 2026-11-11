@@ -133,46 +133,37 @@
   // 道・駐車場・広さ・台数・近くの集客施設を点数にして、商圏からの判定を上げ下げする。
   // 点数の配分は社内の考え方（生活道路沿いが良い、幹線道路は条件つき）をもとにした目安。
   // 基準（直営店の標準的なつくり）を0点とし、良ければプラス、悪ければマイナス（2026-11 社内基準）
+  // 2026-11-11 Yuta希望で項目を簡素化（直営店14店の答え合わせで精度が変わらないことを確認済み）
   const SPEC_DEF = [
     { k: "road", label: "道", base: 0, opts: [["生活道路沿い", 0], ["幹線道路沿い", -2]] },
-    { k: "lanes", label: "前の道の車線", base: 0, opts: [["片側1車線", 0], ["片側2車線以上", -1]] },
-    { k: "access", label: "反対車線からの出入り", base: 0, opts: [["しやすい", 0], ["しにくい", -1]] },
-    { k: "speed", label: "前の道のスピード", base: 0, opts: [["出にくい（ゆっくり走る道）", 0], ["出やすい", -1]] },
     { k: "park", label: "駐車場", base: 2, opts: [["なし", -2], ["1〜3台", -1], ["4〜5台", 0], ["6〜8台", 1], ["9〜10台", 2], ["11台以上", 3]] },
     { k: "tsubo", label: "広さ", base: 4, opts: [["10坪以下", -4], ["10〜15坪", -3], ["15〜20坪", -2], ["20〜25坪", -1], ["25〜30坪", 0], ["30〜35坪", 1], ["35坪以上", 2]] },
-    { k: "wd", label: "洗濯乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 1], ["6台以上", 2]] },
-    { k: "dry", label: "乾燥機", base: 2, opts: [["2台以下", -2], ["3台", -1], ["4台", 0], ["5台", 0]] },
-    { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, opts: [["ない", -1], ["ある", 0]] },
-    { k: "see", label: "お店の見えやすさ（角地・看板）", base: 1, opts: [["見つけにくい", -1], ["ふつう", 0], ["よく見える", 1]] },
+    { k: "mach", label: "機械の台数（洗濯乾燥機と乾燥機の合計）", base: 2, opts: [["5台以下", -2], ["6〜7台", -1], ["8〜9台", 0], ["10〜11台", 1], ["12台以上", 2]] },
+    { k: "see", label: "お店の見えやすさ（角地・看板・夜の明るさ）", base: 1, opts: [["見つけにくい・暗い", -1], ["ふつう", 0], ["よく見える", 1]] },
     { k: "rival", label: "500m以内に競合店（大型店や新しい店舗）", base: 0, opts: [["ない", 0], ["ある", -6]] },
-    { k: "parkEase", label: "駐車場の止めやすさ", base: 1, opts: [["止めにくい", -1], ["ふつう", 0], ["止めやすい（道から直接入れる）", 1]] },
-    { k: "big", label: "大型洗濯機（布団が洗える）", base: 1, opts: [["ない", -1], ["ある", 0]] },
-    { k: "clean", label: "クリーニング併設", base: 1, opts: [["なし", -1], ["併設", 0]] },
-    { k: "night", label: "夜の明るさ・入りやすさ", base: 1, opts: [["暗い・入りにくい", -1], ["明るく入りやすい", 0]] },
+    { k: "near", label: "300m以内のスーパー・ドラッグストア", base: 1, auto: true, opts: [["ない", -1], ["ある", 0]] },
   ];
-  // 参考チェック（2026-11-09 Yuta希望で追加）。まだ点数には入れない。直営店で答え合わせして効いたものだけ点数にする
+  // 参考チェック。「夜も人が来る立地」は はい で1段階上げる（2026-11-09 Yuta決定）。分断は点数なし
   const CHECK_DEF = [
     { k: "night", label: "夜も人が来る立地（駅・飲食店・病院・工場の近く、夜勤の人が多い）", place: true, scored: true },
-    { k: "route", label: "スーパーや駅に行く途中の、生活の通り道にある", place: true },
     { k: "split", label: "商圏が川・線路・大きな道路で分断されている", place: true, bad: true },
-    { k: "weakRival", label: "近くの競合店は古い・小さい・汚い店ばかり", place: true },
-    { k: "rivalBig", label: "近くの競合店に布団が洗える大型洗濯機がある", place: true, bad: true },
-    { k: "growing", label: "新しいマンションや住宅地が増えている", place: true },
-    { k: "glass", label: "店内が外から見える（ガラス張り・明るい）", plan: true },
-    { k: "cashless", label: "キャッシュレス・アプリで払える", plan: true },
-    { k: "h24", label: "24時間営業", plan: true },
   ];
   const CHECK_OPTS = ["わからない", "はい", "いいえ"];
   let CK = { ...(store.get("check1") || {}) };
   const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["seeOpp", "反対車線から見えやすい"]];
-  const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false };
-  let S = { ...SPEC0, ...(store.get("spec4") || {}) };
+  const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false, parkEase: false };
+  let S = { ...SPEC0, ...(store.get("spec5") || {}) };
   // 幹線道路沿いは3つの条件が必須（そろわなければ80〜100万円まで）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
   // 500m以内に7,000世帯以上ある街中では、歩き・自転車のお客さんが多いため駐車場が少なくても減点しない（直営店の実績より）
   const CITY_HH = 7000;
   const isCity = () => !!cur && sumWithin(0.5).hh >= CITY_HH;
-  const specPt = (d) => { const v = d.opts[S[d.k]][1]; return d.k === "park" && v < 0 && isCity() ? 0 : v; };
+  // 駐車場は「道から直接入れて止めやすい」なら+1（旧「止めやすさ」の項目をまとめた）
+  const specPt = (d) => {
+    let v = d.opts[S[d.k]][1];
+    if (d.k === "park") { if (v < 0 && isCity()) v = 0; if (S.park > 0 && S.parkEase) v += 1; }
+    return v;
+  };
   const specScore = () => SPEC_DEF.reduce((a, d) => a + specPt(d), 0);
   const signed = (v) => (v > 0 ? "+" + v : v < 0 ? "−" + -v : "±0");
   const man = (yen) => (yen / 1e4 >= 100 ? fmt(yen / 1e4) : (Math.round(yen / 1e3) / 10).toLocaleString("ja-JP"));
@@ -546,12 +537,13 @@
   function renderSpec() {
     const box = $("#spec"); if (!box) return;
     const body = box.querySelector(".spec-body"); body.textContent = "";
-    const upd = () => { store.set("spec4", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
+    const upd = () => { store.set("spec5", S); renderSpecPts(); if (cur) { renderVerdict(); renderPrint(); } };
     for (const d of SPEC_DEF) {
       const row = document.createElement("div"); row.className = "spec-row";
       row.innerHTML = `<span class="spec-lb"></span><div class="seg"></div><b class="spec-pt"></b>`;
       row.querySelector(".spec-lb").textContent = d.label;
-      d.opts.forEach(([t, v], i) => {
+      if (d.auto && cur && cur.nearAuto) row.querySelector(".seg").remove();
+      else d.opts.forEach(([t, v], i) => {
         const b = document.createElement("button"); b.type = "button"; b.textContent = v === 0 ? `${t}（基準）` : t;
         b.className = S[d.k] === i ? "on" : "";
         b.onclick = () => { S[d.k] = i; renderSpec(); upd(); };
@@ -563,9 +555,16 @@
         n.textContent = isCity() ? `500m以内に${fmt(sumWithin(0.5).hh)}世帯ある街中なので、駐車場が少なくても減点しません` : `500m以内は${fmt(sumWithin(0.5).hh)}世帯です（7,000世帯以上なら駐車場なしでも減点しません）`;
         row.appendChild(n);
       }
+      if (d.k === "park" && S.park > 0) {
+        const l = document.createElement("label"); l.className = "spec-ease";
+        l.innerHTML = `<input type="checkbox"><span>道から直接入れて止めやすい（+1点）</span>`;
+        const c = l.querySelector("input"); c.checked = !!S.parkEase;
+        c.onchange = () => { S.parkEase = c.checked; upd(); };
+        row.appendChild(l);
+      }
       if (d.k === "near" && cur && cur.nearAuto) {
         const n = document.createElement("small"); n.className = "spec-auto";
-        n.textContent = cur.nearAuto.name ? `Googleマップで自動判定：${cur.nearAuto.name}（約${cur.nearAuto.m}m）` : "Googleマップで自動判定：300m以内に見つかりませんでした";
+        n.textContent = cur.nearAuto.name ? `自動判定：ある（${cur.nearAuto.name}、約${cur.nearAuto.m}m）` : "自動判定：300m以内に見つかりませんでした";
         row.appendChild(n);
       }
       body.appendChild(row);
@@ -616,14 +615,8 @@
     box.appendChild(auto);
   }
   function chkHint(d) {
-    if (d.plan) return "出店するお店の予定で選んでください";
     const a = cur && cur.chkAuto;
-    if (d.k === "route" && a) return a.route ? `Googleマップで自動判定：${a.route.name}（約${a.route.m}m）が500m以内にあります` : "Googleマップで自動判定：500m以内にスーパー・ドラッグストア・駅が見つかりませんでした";
     if (d.k === "night" && a) return `Googleマップの目安：500m以内に夜23時以降も開いている飲食店など${a.late}軒（直営店ではこの数だけでは判断できなかったため、現地の様子で選んでください）`;
-    if ((d.k === "weakRival" || d.k === "rivalBig") && cur) {
-      const n1 = cur.comps.filter((c) => c.km <= 1 && !c.closed);
-      return n1.length ? `1km以内の競合 ${n1.length}店（近い店：${n1.slice(0, 2).map((c) => c.name).join("、")}）。商圏調査の一覧から写真や口コミを確認できます` : "1km以内に競合店は見つかりませんでした";
-    }
     if (d.k === "split") return "地図で、川・線路・大きな道路が商圏を横切っていないか確認してください";
     return "";
   }
@@ -694,8 +687,7 @@
     const n = (km) => live.filter((c) => c.km <= km).length;
     const single = k1.single / Math.max(1, k1.hh);
     const sales = e.lo || e.hi;
-    const spec = SPEC_DEF.filter((d) => !(S.road === 0 && ["lanes", "access", "speed"].includes(d.k)))
-      .map((d) => ({ label: d.label, choice: d.opts[S[d.k]][0], pt: specPt(d) }));
+    const spec = SPEC_DEF.map((d) => ({ label: d.label, choice: d.opts[S[d.k]][0], pt: specPt(d) }));
     if (S.road === 1) for (const [k, t] of ROAD_OK) spec.push({ label: "幹線道路の必須条件: " + t, choice: S[k] ? "はい" : "いいえ", pt: 0 });
     const cond = e.cond.map((c) => ({ label: c.label, value: c.value,
       note: c.extra ? (c.up ? c.upText : c.keepText) : c.pos < 0 ? c.low : c.pos > 0 ? c.high : "直営店の範囲内" }));
@@ -712,9 +704,7 @@
     if (S.road === 0) st.push("生活道路沿いで、近所の方が立ち寄りやすい");
     if (S.near === 1) st.push("300m以内にスーパー・ドラッグストアがあり、買い物ついでに使える");
     if (S.see === 2) st.push("角地・看板でお店がよく見える");
-    if (S.parkEase === 2) st.push("駐車場が道から直接入れて止めやすい");
-    if (S.big === 1) st.push("布団が洗える大型洗濯機がある");
-    if (S.clean === 1) st.push("クリーニング併設");
+    if (S.park > 0 && S.parkEase) st.push("駐車場が道から直接入れて止めやすい");
     if (S.rival === 0) st.push("500m以内に大型店や新しい競合店がない");
     if (single >= APT_RATIO) st.push("マンションが多く、コインランドリーを使う世帯が多い地域");
     st.push("ランドリープレスの運営ノウハウ（清潔な店内・明るい照明・キャッシュレス対応）");
@@ -722,7 +712,7 @@
     if (S.rival === 1) rk.push("近くの競合店 → 清潔さ・機械の新しさ・大型機の訴求で差別化する");
     if (S.road === 1) rk.push("幹線道路沿いで入りにくい → 看板・誘導で入口をわかりやすくする");
     if (specPt(SPEC_DEF.find((d) => d.k === "park")) < 0) rk.push("駐車場が少ない → 近隣のお客さん（歩き・自転車）を中心に集客する");
-    if (S.night === 0) rk.push("夜が暗い → 店内外の照明・防犯カメラで入りやすくする");
+    if (S.see === 0) rk.push("見つけにくい・夜が暗い → 看板・照明・防犯カメラで入りやすくする");
     if (e.base > 0) rk.push("直営店と条件が違う商圏 → 開業後の売上を毎月確認し、早めに手を打つ");
     rk.push("天候・季節で売上が上下する → 梅雨・花粉・冬の布団洗いの時期に集中して宣伝する");
     rk.push("機械の故障 → 保守契約を結び、止まる時間を短くする");
@@ -767,7 +757,7 @@
   });
   renderPlanForm();
 
-  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec4", S); CK = {}; store.set("check1", CK); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
+  $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec5", S); CK = {}; store.set("check1", CK); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });
   renderSpec();
 
   // ---------------------------------------------------------------- 計算の前提
@@ -930,7 +920,7 @@
       for (const i of [1, 2]) { $("#panel" + i).hidden = i !== 1; $("#tabBtn" + i).classList.toggle("on", i === 1); $("#tabBtn" + i).setAttribute("aria-selected", i === 1); }
       // 300m以内のスーパー・ドラッグストアを自動で調べて「お店の条件」に入れる（あとから手で変えられる）
       cur.nearAuto = await nearShops(g.lat, g.lon).catch(() => null);
-      if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
+      if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec5", S); }
       // 参考チェック: 場所によって変わる項目は、新しい住所では選び直し。生活の通り道は自動で入れる
       for (const d of CHECK_DEF) if (d.place) CK[d.k] = 0;
       [cur.chkAuto, cur.zone] = await Promise.all([checkAuto(g.lat, g.lon).catch(() => null), zoneSurvey(g.lat, g.lon).catch(() => null)]);
