@@ -750,7 +750,9 @@
     const sv = new StreetViewService();
     for (const radius of [40, 80, 150]) {
       try {
-        const r = await sv.getPanorama({ location: { lat, lng: lon }, radius, sources: [StreetViewSource.OUTDOOR] });
+        // Google公式の道路の写真だけ（お店などが投稿した店内の写真は使わない）
+        const r = await sv.getPanorama({ location: { lat, lng: lon }, radius, sources: [StreetViewSource.GOOGLE || StreetViewSource.OUTDOOR] });
+        if (!/Google/.test(r.data.copyright || "") || !(r.data.links || []).length) continue;
         const ll = r.data.location.latLng, pano = encodeURIComponent(r.data.location.pano), hd = brg(ll.lat(), ll.lng(), lat, lon);
         const lk = (r.data.links || []).map((l) => l.heading).filter((h) => h != null);
         const off = (a) => Math.abs(((a - hd + 540) % 360) - 180) - 90;
