@@ -358,32 +358,31 @@
     }
     return { here, mix: Object.entries(cnt).map(([k, n]) => ({ code: +k, pct: n / tot })).sort((a, b) => b.pct - a.pct) };
   }
+  // 候補地の用途地域と「コインランドリーを出店できるか」だけを一目で（2026-11-11 Yuta希望）
+  const ZONE_JUDGE = (code) => [1, 12].includes(code) ? "ng" : [2, 13].includes(code) || !code ? "chk" : "ok";
+  const ZONE_NOTE = {
+    1: "コインランドリー単独の店は、原則建てられません（道路沿いだけ別の地域のこともあります）",
+    2: "150㎡（約45坪）以下なら建てられることが多い地域です。役所で確認してください",
+    12: "工場のための地域で、店舗は原則建てられません",
+    13: "150㎡（約45坪）以下なら建てられることが多い地域です。役所で確認してください",
+    0: "用途地域の指定がない場所です。市街化調整区域だと建てられないので、役所で確認してください",
+  };
   function renderZone() {
     const box = $("#zone"); if (!box) return;
     const z = cur && cur.zone;
     box.hidden = !z;
     if (!z) return;
-    if (z.none) { box.innerHTML = `<div class="sec-head"><h2>用途地域</h2></div><p class="note">この場所の用途地域データがありません（データを公開していない市区町村か、用途地域の指定がない地域です）。役所の都市計画課で確認してください。</p>`; return; }
-    const [name, cls, verdict, text] = z.here ? ZONES[z.here.code] || ZONE_NONE : ZONE_NONE;
-    const res = (c) => [1, 2, 3, 4, 5, 6, 7, 13].includes(c);
-    const resPct = z.mix.filter((m) => res(m.code)).reduce((a, m) => a + m.pct, 0);
-    box.innerHTML = `<div class="sec-head"><h2>用途地域</h2><span class="sub">コインランドリーに向いているか</span></div>
-      <div class="zone-top ${cls}"><b class="zone-mk">${{ best: "◎", ok: "○", mid: "△", ng: "✕" }[cls]}</b><div><span class="zone-name"></span><strong class="zone-v"></strong></div></div>
-      <p class="zone-text"></p>
-      ${z.here ? `<p class="note">建ぺい率 ${z.here.kp}%・容積率 ${z.here.yr}%</p>` : ""}
-      <h3 class="zone-h3">500m以内の用途地域の内訳</h3><ul class="zone-mix"></ul>
-      <p class="note">500m以内の約${Math.round(resPct * 100)}%が住居系の地域です。出典：国土数値情報「用途地域」（国土交通省、平成31年度）。その後に変わっている場合があるので、最終的には役所で確認してください。</p>`;
-    box.querySelector(".zone-name").textContent = name;
-    box.querySelector(".zone-v").textContent = verdict;
-    box.querySelector(".zone-text").textContent = text;
-    const ul = box.querySelector(".zone-mix");
-    for (const m of z.mix.filter((m) => m.pct >= 0.01).slice(0, 5)) {
-      const li = document.createElement("li");
-      const zc = ZONES[m.code] || ZONE_NONE;
-      li.innerHTML = `<span class="zl"></span><span class="zbar"><i class="${zc[1]}" style="width:${Math.round(m.pct * 100)}%"></i></span><b>${Math.round(m.pct * 100)}%</b>`;
-      li.querySelector(".zl").textContent = zc[0];
-      ul.appendChild(li);
-    }
+    const code = z.none || !z.here ? 0 : z.here.code;
+    const j = ZONE_JUDGE(code);
+    const name = code ? ZONES[code][0] : "用途地域の指定なし";
+    const [mk, word] = { ok: ["OK", "出店できます"], chk: ["?", "要確認"], ng: ["NG", "原則出店できません"] }[j];
+    box.className = "zone z-" + j;
+    box.innerHTML = `<div class="z-main"><span class="z-eye">ZONING<i>用途地域</i></span><b class="z-name"></b>
+      <span class="z-sub">${code ? `建ぺい率 ${z.here.kp}%・容積率 ${z.here.yr}%` : ""}</span></div>
+      <div class="z-badge"><span class="z-ring">${mk}</span><small>コインランドリー</small><strong>${word}</strong></div>
+      <p class="z-note"></p>`;
+    box.querySelector(".z-name").textContent = name;
+    box.querySelector(".z-note").textContent = ZONE_NOTE[code] || "コインランドリーの出店に問題ない地域です";
   }
 
   // ---------------------------------------------------------------- 地図

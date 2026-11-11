@@ -449,19 +449,22 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .spec-row.chk{grid-template-columns:1fr}
 .spec-row.chk .seg button.on:first-child{background:var(--surface-2);color:var(--fg);border-color:var(--muted);font-weight:700}
 
-/* 用途地域 */
-.zone{display:grid;gap:10px}
-.zone .note{margin:0;font-size:.74rem;color:var(--muted);line-height:1.6}
-.zone-top{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--surface-2)}
-.zone-mk{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:1.4rem;color:#fff;background:#8a7d72}
-.zone-top.best .zone-mk{background:#2e8b57}.zone-top.ok .zone-mk{background:#4f8f6a}.zone-top.mid .zone-mk{background:#d08a00}.zone-top.ng .zone-mk{background:#b8473a}
-.zone-top div{display:grid;gap:2px}.zone-name{font-size:.8rem;color:var(--muted)}.zone-v{font-size:1.05rem}
-.zone-text{margin:0;font-size:.86rem;line-height:1.6}
-.zone-h3{margin:4px 0 0;font-size:.86rem}
-.zone-mix{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.zone-mix li b{text-align:right}
-.zone-mix li{display:grid;grid-template-columns:minmax(0,1.4fr) 1fr 3em;gap:8px;align-items:center;font-size:.78rem}
-.zone-mix .zbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
-.zone-mix .zbar i{display:block;height:100%;background:#8a7d72}
-.zone-mix .zbar i.best{background:#2e8b57}.zone-mix .zbar i.ok{background:#4f8f6a}.zone-mix .zbar i.mid{background:#d08a00}.zone-mix .zbar i.ng{background:#b8473a}
+/* 用途地域（候補地だけ・出店できるか） */
+.zone{--z:#3ecf8e;position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:center;
+  padding:18px 18px 16px;border-radius:20px;color:#fff;background:radial-gradient(120% 140% at 100% 0%,rgba(226,98,27,.28),transparent 55%),#0c0909;
+  box-shadow:0 10px 26px rgba(12,9,9,.28);border:1px solid rgba(255,255,255,.06)}
+.zone[hidden]{display:none}
+.zone.z-chk{--z:#ffb547}.zone.z-ng{--z:#ff6b5b}
+.z-main{display:grid;gap:4px;min-width:0}
+.z-eye{font-family:var(--f-num);font-weight:700;font-size:.66rem;letter-spacing:.22em;color:var(--accent)}
+.z-eye i{font-style:normal;font-family:var(--f-display);letter-spacing:.06em;margin-left:8px;color:rgba(255,255,255,.6)}
+.z-name{font-family:var(--f-display);font-weight:800;font-size:clamp(1.05rem,5.2vw,1.35rem);line-height:1.3;letter-spacing:.02em}
+.z-sub{font-size:.72rem;color:rgba(255,255,255,.55)}
+.z-badge{display:grid;justify-items:center;gap:2px;text-align:center}
+.z-ring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-num);font-weight:800;font-size:1.25rem;letter-spacing:.04em;
+  color:var(--z);border:2px solid var(--z);box-shadow:0 0 14px 1px color-mix(in srgb,var(--z) 55%,transparent),inset 0 0 12px color-mix(in srgb,var(--z) 35%,transparent);
+  text-shadow:0 0 10px color-mix(in srgb,var(--z) 70%,transparent)}
+.z-badge small{margin-top:4px;font-size:.6rem;color:rgba(255,255,255,.55)}
+.z-badge strong{font-size:.78rem;color:var(--z);white-space:nowrap}
+.z-note{grid-column:1/-1;margin:6px 0 0;padding-top:10px;border-top:1px solid rgba(255,255,255,.1);font-size:.76rem;line-height:1.6;color:rgba(255,255,255,.75)}
 @media print{.zone{display:none!important}}
