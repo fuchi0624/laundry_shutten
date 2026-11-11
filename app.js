@@ -158,7 +158,7 @@
   // 500m以内に7,000世帯以上ある街中では、歩き・自転車のお客さんが多いため駐車場が少なくても減点しない（直営店の実績より）
   const CITY_HH = 7000;
   const isCity = () => !!cur && sumWithin(0.5).hh >= CITY_HH;
-  // 駐車場は「道から直接入れて止めやすい」なら+1（旧「止めやすさ」の項目をまとめた）
+  // 駐車場は「反対車線からも出入りしやすい」なら+1（旧「止めやすさ」の項目をまとめた）
   const specPt = (d) => {
     let v = d.opts[S[d.k]][1];
     if (d.k === "park") { if (v < 0 && isCity()) v = 0; if (S.park > 0 && S.parkEase) v += 1; }
@@ -474,7 +474,7 @@
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <ul class="v-cond"></ul>
       <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため100万円未満にしました" : e.band > e.band0 ? "→ 売上の見込みを" + (e.band - e.band0) + "段階上げました" : e.band < e.band0 ? "→ 売上の見込みを" + (e.band0 - e.band) + "段階下げました" : "→ 売上の見込みはそのまま"}<small>上の「お店の条件」で変えられます</small></p>
-      <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレス直営店の売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
+      <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレスの売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
       const li = document.createElement("li"); li.className = c.extra ? (c.up ? "up" : "ok") : c.pos ? "ng" : "ok";
@@ -486,7 +486,7 @@
       ul.appendChild(li);
     }
     $("#saveBtn").addEventListener("click", saveCurrent);
-    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${bandTxt(e.band)}</strong>（直営店の売上実績をもとに算出・お店の条件 基準から${signed(e.pt)}点）</p></div>`;
+    $("#pverdict").innerHTML = `<b class="${cls}">${g}</b><div><span>${gl}</span><p>売上 月<strong>${bandTxt(e.band)}</strong>（ランドリープレスの売上実績をもとに算出・お店の条件 基準から${signed(e.pt)}点）</p></div>`;
   }
 
   // ---------------------------------------------------------------- 候補地の保存と比較
@@ -557,7 +557,7 @@
       }
       if (d.k === "park" && S.park > 0) {
         const l = document.createElement("label"); l.className = "spec-ease";
-        l.innerHTML = `<input type="checkbox"><span>道から直接入れて止めやすい（+1点）</span>`;
+        l.innerHTML = `<input type="checkbox"><span>反対車線からも出入りしやすい（+1点）</span>`;
         const c = l.querySelector("input"); c.checked = !!S.parkEase;
         c.onchange = () => { S.parkEase = c.checked; upd(); };
         row.appendChild(l);
@@ -704,7 +704,7 @@
     if (S.road === 0) st.push("生活道路沿いで、近所の方が立ち寄りやすい");
     if (S.near === 1) st.push("300m以内にスーパー・ドラッグストアがあり、買い物ついでに使える");
     if (S.see === 2) st.push("角地・看板でお店がよく見える");
-    if (S.park > 0 && S.parkEase) st.push("駐車場が道から直接入れて止めやすい");
+    if (S.park > 0 && S.parkEase) st.push("反対車線からも駐車場に出入りしやすい");
     if (S.rival === 0) st.push("500m以内に大型店や新しい競合店がない");
     if (single >= APT_RATIO) st.push("マンションが多く、コインランドリーを使う世帯が多い地域");
     st.push("ランドリープレスの運営ノウハウ（清潔な店内・明るい照明・キャッシュレス対応）");
@@ -739,7 +739,7 @@
     btn.disabled = true; msg.textContent = "つくっています…";
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=3");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=4");
       const d = planData();
       const blob = await window.OpenNaviPlan.makePlan(d);
       const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
@@ -835,7 +835,7 @@
   function renderPrint() {
     const [r1, r2] = radii(), d = new Date();
     $("#pmeta").textContent = `候補地: ${cur.address}　｜　第1商圏 ${r1}km・第2商圏 ${r2}km　｜　作成日 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-    $("#psrc").textContent = `売上の見込み: ランドリープレス直営店の売上実績をもとに算出（客単価${fmt(P.price)}円）　｜　人口・世帯数: 令和2年国勢調査500mメッシュ　｜　` + $("#srcnote").textContent;
+    $("#psrc").textContent = `売上の見込み: ランドリープレスの売上実績をもとに算出（客単価${fmt(P.price)}円）　｜　人口・世帯数: 令和2年国勢調査500mメッシュ　｜　` + $("#srcnote").textContent;
     const ring = (c) => (c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外");
     const label = (c) => c.name + (c.unsure ? "（要確認）" : "") + (c.closed ? "（臨時休業中）" : "");
     // 近い順に3店を写真つきで
