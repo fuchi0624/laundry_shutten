@@ -448,3 +448,20 @@ body.printing #map{width:640px;max-width:none;height:420px;aspect-ratio:auto}
 .chk-head p{margin:0;font-size:.74rem;color:var(--muted)}
 .spec-row.chk{grid-template-columns:1fr}
 .spec-row.chk .seg button.on:first-child{background:var(--surface-2);color:var(--fg);border-color:var(--muted);font-weight:700}
+
+/* 用途地域 */
+.zone{display:grid;gap:10px}
+.zone .note{margin:0;font-size:.74rem;color:var(--muted);line-height:1.6}
+.zone-top{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--surface-2)}
+.zone-mk{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:1.4rem;color:#fff;background:#8a7d72}
+.zone-top.best .zone-mk{background:#2e8b57}.zone-top.ok .zone-mk{background:#4f8f6a}.zone-top.mid .zone-mk{background:#d08a00}.zone-top.ng .zone-mk{background:#b8473a}
+.zone-top div{display:grid;gap:2px}.zone-name{font-size:.8rem;color:var(--muted)}.zone-v{font-size:1.05rem}
+.zone-text{margin:0;font-size:.86rem;line-height:1.6}
+.zone-h3{margin:4px 0 0;font-size:.86rem}
+.zone-mix{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.zone-mix li b{text-align:right}
+.zone-mix li{display:grid;grid-template-columns:minmax(0,1.4fr) 1fr 3em;gap:8px;align-items:center;font-size:.78rem}
+.zone-mix .zbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.zone-mix .zbar i{display:block;height:100%;background:#8a7d72}
+.zone-mix .zbar i.best{background:#2e8b57}.zone-mix .zbar i.ok{background:#4f8f6a}.zone-mix .zbar i.mid{background:#d08a00}.zone-mix .zbar i.ng{background:#b8473a}
+@media print{.zone{display:none!important}}

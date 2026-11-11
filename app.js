@@ -303,6 +303,89 @@
     return { comps, note: "OpenStreetMap に登録されたお店です。登録されていない店が多いため、実際より少なく出ます。" };
   }
 
+  // ---------------------------------------------------------------- 用途地域（国土数値情報 A29 平成31年度）
+  // 建築基準法の用途制限から、コインランドリー（店舗）が建てられるか・向いているかの目安（最終確認は役所の建築指導課）
+  const ZONES = {
+    1: ["第一種低層住居専用地域", "ng", "原則建てられません", "店舗は住宅と一緒の小さなもの（50㎡以下）しか認められず、コインランドリー単独の店は建てられません。ただし道路沿いだけ別の用途地域になっていることがあるので、境目の近くなら役所で確認してください。"],
+    2: ["第二種低層住居専用地域", "mid", "条件つき（要確認）", "150㎡（約45坪）以下・2階以下の店舗なら建てられる地域です。コインランドリーを認めるかは役所によって判断が分かれるので、事前に確認が必要です。"],
+    3: ["第一種中高層住居専用地域", "ok", "建てられます", "500㎡以下・2階以下の店舗なら建てられます。マンションや住宅が多く、お客さんが近くに住んでいます。"],
+    4: ["第二種中高層住居専用地域", "ok", "建てられます", "1,500㎡以下の店舗なら建てられます。住宅が多い地域です。"],
+    5: ["第一種住居地域", "best", "建てられます・向いています", "3,000㎡以下の店舗が建てられ、住宅が多い地域です。コインランドリーに向いています。"],
+    6: ["第二種住居地域", "best", "建てられます・向いています", "店舗が建てやすく、住宅も多い地域です。コインランドリーに向いています。"],
+    7: ["準住居地域", "best", "建てられます・向いています", "幹線道路沿いに多い地域です。住宅も近く、車のお客さんも見込めます。"],
+    8: ["近隣商業地域", "best", "建てられます・向いています", "住宅地の近くの商店街です。日常の買い物ついでに使ってもらいやすい地域です。"],
+    9: ["商業地域", "best", "建てられます・向いています", "建物の制限はほとんどありません。駅前やマンションの多い街中で、直営店（住吉・日ノ出町など）も売上が高めです。家賃が高めなので、事業計画書で採算も確認してください。"],
+    10: ["準工業地域", "ok", "建てられます", "住宅と工場が混ざった地域です。まわりに住宅があるかを確認してください。"],
+    11: ["工業地域", "mid", "建てられますが不向き", "店舗は建てられますが、住む人が少ないことが多い地域です。"],
+    12: ["工業専用地域", "ng", "原則向きません（要確認）", "工場のための地域で、住宅も店舗もほとんど建てられません。"],
+    13: ["田園住居地域", "mid", "条件つき（要確認）", "第二種低層住居専用地域と同じくらいの制限があります。役所に確認が必要です。"],
+  };
+  const ZONE_NONE = ["用途地域の指定なし", "mid", "要確認", "市街化調整区域なら原則建てられません。都市計画区域外や非線引きの区域なら比較的自由に建てられます。役所の都市計画課で確認してください。"];
+  const zoneCache = {};
+  const loadZoneTile = (k) => (zoneCache[k] ||= fetch(`data/youto/${k}.json`).then((r) => (r.ok ? r.json() : { p: [] })).catch(() => ({ p: [] })).then((j) => {
+    // 差分で縮めた座標を元に戻す
+    j.polys = j.p.map(([code, kp, yr, rings]) => ({ code, kp, yr, rings: rings.map((f) => {
+      const pts = []; let x = f[0], y = f[1]; pts.push([x / 1e5, y / 1e5]);
+      for (let i = 2; i < f.length; i += 2) { x += f[i]; y += f[i + 1]; pts.push([x / 1e5, y / 1e5]); }
+      return pts;
+    }) }));
+    return j;
+  }));
+  function inRings(rings, lon, lat) {
+    let inside = false;
+    for (const r of rings) for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i], [xj, yj] = r[j];
+      if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  async function zoneSurvey(lat, lon) {
+    const rKm = 0.5, dlat = rKm / 110.57, dlon = rKm / (111.32 * Math.cos(lat * Math.PI / 180));
+    const keys = new Set();
+    for (const a of [lat - dlat, lat, lat + dlat]) for (const b of [lon - dlon, lon, lon + dlon]) keys.add(`${Math.floor(a * 12)}_${Math.floor(b * 8)}`);
+    const tiles = await Promise.all([...keys].map(loadZoneTile));
+    const polys = tiles.flatMap((t) => t.polys);
+    if (!polys.length) return { none: true };
+    const at = (la, lo) => polys.find((p) => inRings(p.rings, lo, la)) || null;
+    const here = at(lat, lon);
+    // 500m以内の内訳（点を並べて数える）
+    const N = 21, cnt = {}; let tot = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const u = (i / (N - 1)) * 2 - 1, v = (j / (N - 1)) * 2 - 1;
+      if (u * u + v * v > 1) continue;
+      const p = at(lat + u * dlat, lon + v * dlon); const k = p ? p.code : 0;
+      cnt[k] = (cnt[k] || 0) + 1; tot++;
+    }
+    return { here, mix: Object.entries(cnt).map(([k, n]) => ({ code: +k, pct: n / tot })).sort((a, b) => b.pct - a.pct) };
+  }
+  function renderZone() {
+    const box = $("#zone"); if (!box) return;
+    const z = cur && cur.zone;
+    box.hidden = !z;
+    if (!z) return;
+    if (z.none) { box.innerHTML = `<div class="sec-head"><h2>用途地域</h2></div><p class="note">この場所の用途地域データがありません（データを公開していない市区町村か、用途地域の指定がない地域です）。役所の都市計画課で確認してください。</p>`; return; }
+    const [name, cls, verdict, text] = z.here ? ZONES[z.here.code] || ZONE_NONE : ZONE_NONE;
+    const res = (c) => [1, 2, 3, 4, 5, 6, 7, 13].includes(c);
+    const resPct = z.mix.filter((m) => res(m.code)).reduce((a, m) => a + m.pct, 0);
+    box.innerHTML = `<div class="sec-head"><h2>用途地域</h2><span class="sub">コインランドリーに向いているか</span></div>
+      <div class="zone-top ${cls}"><b class="zone-mk">${{ best: "◎", ok: "○", mid: "△", ng: "✕" }[cls]}</b><div><span class="zone-name"></span><strong class="zone-v"></strong></div></div>
+      <p class="zone-text"></p>
+      ${z.here ? `<p class="note">建ぺい率 ${z.here.kp}%・容積率 ${z.here.yr}%</p>` : ""}
+      <h3 class="zone-h3">500m以内の用途地域の内訳</h3><ul class="zone-mix"></ul>
+      <p class="note">500m以内の約${Math.round(resPct * 100)}%が住居系の地域です。出典：国土数値情報「用途地域」（国土交通省、平成31年度）。その後に変わっている場合があるので、最終的には役所で確認してください。</p>`;
+    box.querySelector(".zone-name").textContent = name;
+    box.querySelector(".zone-v").textContent = verdict;
+    box.querySelector(".zone-text").textContent = text;
+    const ul = box.querySelector(".zone-mix");
+    for (const m of z.mix.filter((m) => m.pct >= 0.01).slice(0, 5)) {
+      const li = document.createElement("li");
+      const zc = ZONES[m.code] || ZONE_NONE;
+      li.innerHTML = `<span class="zl"></span><span class="zbar"><i class="${zc[1]}" style="width:${Math.round(m.pct * 100)}%"></i></span><b>${Math.round(m.pct * 100)}%</b>`;
+      li.querySelector(".zl").textContent = zc[0];
+      ul.appendChild(li);
+    }
+  }
+
   // ---------------------------------------------------------------- 地図
   const map = {
     async init() {
@@ -755,7 +838,7 @@
   function refresh(fit) {
     if (!cur) return;
     store.set("radius", radii());
-    renderVerdict(); renderStats(); renderList(); renderPrint(); map.draw(fit);
+    renderVerdict(); renderStats(); renderZone(); renderList(); renderPrint(); map.draw(fit);
   }
 
   // ---------------------------------------------------------------- A4印刷用
@@ -851,7 +934,7 @@
       if (cur.nearAuto) { S.near = cur.nearAuto.name ? 1 : 0; store.set("spec4", S); }
       // 参考チェック: 場所によって変わる項目は、新しい住所では選び直し。生活の通り道は自動で入れる
       for (const d of CHECK_DEF) if (d.place) CK[d.k] = 0;
-      cur.chkAuto = await checkAuto(g.lat, g.lon).catch(() => null);
+      [cur.chkAuto, cur.zone] = await Promise.all([checkAuto(g.lat, g.lon).catch(() => null), zoneSurvey(g.lat, g.lon).catch(() => null)]);
       if (cur.chkAuto) CK.route = cur.chkAuto.route ? 1 : 2;
       store.set("check1", CK);
       renderSpec();
