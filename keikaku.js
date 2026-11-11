@@ -1,4 +1,4 @@
-// 出店計画書（Excel）。Yutaさんの「出店計画書」（表紙＋10ページ）と同じ並び・同じ計算で作る（2026-11-11）。
+// 事業計画書（Excel）。Yutaさんの「出店計画書」（表紙＋10ページ）と同じ並び・同じ計算で作る（2026-11-11。名前は事業計画書に）。
 // 売上はランドリーオープンナビの売上予測、費用・借入・10年の伸び方は出店計画書の前提。
 // 黄色のセルを変えると、全部のシートが計算し直される（数式つき・開いた瞬間から数字が見えるよう計算済みの値も入れる）。
 (function (root) {
@@ -30,6 +30,8 @@
   ];
   const DEF = { elec: 2500000, interior: 6000000, disc: 0, rent: 250000, fixed: 36000, c_el: 0.10, c_gas: 0.09, c_wat: 0.05, c_det: 0.03,
     loan_r: 0.03, loan_y: 10, loan_y2: 10, dz: [0, 0.05, 0.10, 0.15, 0.20], comp_y: 5, area: 85.8, park: 5, fmt: "路面店（単独の建物）" };
+  // 立地スコア（出店計画書の採点表。グループ内はどれか1つ）
+  const SCORE = [{"name": "【1】店舗の形状", "items": [{"t": "40坪以上の大型店", "p": 10, "group": "a"}, {"t": "30〜40坪未満", "p": 8, "group": "a"}, {"t": "25〜30坪未満", "p": 6, "group": "a", "def": 1}, {"t": "20〜25坪未満", "p": 4, "group": "a"}, {"t": "15〜20坪未満", "p": 2, "group": "a"}, {"t": "15坪未満", "p": 1, "group": "a"}, {"t": "間口幅10m以上", "p": 6, "group": "b"}, {"t": "間口幅8m以上", "p": 4, "group": "b"}, {"t": "間口幅5〜8m", "p": 2, "group": "b", "def": 1}, {"t": "間口幅5m以内", "p": 1, "group": "b"}, {"t": "正面ガラス面70%以上", "p": 6, "group": "c", "def": 1}, {"t": "正面ガラス面50〜70%", "p": 4, "group": "c"}, {"t": "正面ガラス面30〜50%", "p": 2, "group": "c"}, {"t": "3方向から視認できる", "p": 5, "group": "d"}, {"t": "2方向から視認できる", "p": 4, "group": "d"}, {"t": "正面から見えやすい", "p": 3, "group": "d", "def": 1}, {"t": "大型看板の取付ができる", "p": 4}, {"t": "道路際にポール看板を設置できる", "p": 4}, {"t": "看板視認性不足", "p": -3}, {"t": "西向き店舗", "p": -2}]}, {"name": "【2】道路等立地条件", "items": [{"t": "買い物ルート等の生活道路沿い（中央分離帯なし）", "p": 5, "def": 1, "group": "road"}, {"t": "買い物ルート等の生活道路沿い（中央分離帯あり）", "p": 3, "group": "road"}, {"t": "交通量の多い幹線道路沿い（中央分離帯なし）", "p": 3, "group": "road"}, {"t": "交通量の多い幹線道路沿い（中央分離帯あり）", "p": 2, "group": "road"}, {"t": "生活道路ではない中央線のある道路", "p": 2, "group": "road"}, {"t": "中央線のない狭路（幅8m以下）", "p": 1, "group": "road"}, {"t": "右カーブの左正面に立地", "p": 1}, {"t": "近隣住民しか使わない道路沿い", "p": -3}, {"t": "急な坂にある", "p": -3}, {"t": "車のスピードが速く危険", "p": -3}, {"t": "渋滞が発生する", "p": -3}, {"t": "信号や交差点の近くで入りにくい", "p": -3}, {"t": "左カーブの内側に立地", "p": -3}]}, {"name": "【3】敷地の形状", "items": [{"t": "駐車場8〜10台以上", "p": 12, "group": "a"}, {"t": "駐車場5〜7台", "p": 10, "group": "a", "def": 1}, {"t": "駐車場2〜4台", "p": 8, "group": "a"}, {"t": "駐車場0〜1台", "p": 6, "group": "a"}, {"t": "路上駐車3〜4台可", "p": 4, "group": "a"}, {"t": "路上駐車1〜2台可", "p": 3, "group": "a"}, {"t": "駐車しやすい駐車場", "p": 2}, {"t": "駐車場が建屋に隣接", "p": 2}, {"t": "駐輪場が隣接", "p": 2}, {"t": "駐車場から傘なしで入店できる", "p": 2}, {"t": "駐車場から道路に出て旋回が必要", "p": -4}, {"t": "電柱・信号・段差など障害物あり", "p": -3}, {"t": "他店との兼用駐車場", "p": -2, "def": 1}]}, {"name": "【4】周辺の住宅環境", "items": [{"t": "背後に傾斜住宅地を持つ平坦地", "p": 2}, {"t": "マンション・商業施設混在の都市型", "p": 2}, {"t": "一戸建てとマンションが混在", "p": 1, "def": 1}, {"t": "郊外で一戸建て中心", "p": 1}, {"t": "学生マンション・公団・市営・県営住宅中心", "p": 1}, {"t": "鉄道や川で商圏が分断", "p": -3}, {"t": "商圏内の高い位置に店舗", "p": -2}]}, {"name": "【5】相乗効果を生む施設", "items": [{"t": "生鮮スーパーの敷地内", "p": 4}, {"t": "大型商業施設の敷地内", "p": 3, "def": 1}, {"t": "ホームセンター・大型家電店の敷地内", "p": 3}, {"t": "生鮮スーパーに隣接", "p": 3}, {"t": "大型商業施設に隣接", "p": 2}, {"t": "駅に近い", "p": 1}, {"t": "クリーニング店等と併設", "p": 2}, {"t": "従業員によるサービスあり", "p": 2}, {"t": "夜でも明るい", "p": 1, "def": 1}]}, {"name": "【6】競合店（マイナスのみ）", "items": [{"t": "第1商圏にAクラス競合2店以上", "p": -8}, {"t": "第1商圏にAクラス競合", "p": -6}, {"t": "第1商圏にBクラス競合2店以上", "p": -6}, {"t": "第1商圏にBクラス競合", "p": -4}, {"t": "第1商圏にCクラス競合2店以上", "p": -4}, {"t": "第1商圏にCクラス競合", "p": -3, "def": 1}, {"t": "第2商圏にAクラス競合", "p": -3}, {"t": "第2商圏にBクラス競合", "p": -2}]}];
   const RAMP = [0.80, 0.92, 1.00, 1.09, 1.11, 1.11, 1.11, 1.11, 1.11, 1.11];
   const SEASON = [0.94, 0.84, 0.97, 1.02, 1.08, 1.09, 1.02, 0.90, 0.83, 1.09, 1.06, 1.18];
 
@@ -88,7 +90,7 @@
     };
     // ページの見出し（出店計画書と同じ「番号・英語・日本語・説明」）
     const head = (s, no, en, jp, sub, last = "H") => {
-      s.set("A1", `出店計画書｜${A.name}`, ST.hdr).set(last + "1", "Laundry Press", ST.hdr); s.fitH = 1;
+      s.set("A1", `事業計画書｜${A.name}`, ST.hdr).set(last + "1", "Laundry Press", ST.hdr); s.fitH = 1;
       s.set("A2", String(no).padStart(2, "0"), ST.secNo).set("B2", en, ST.eyebrow);
       s.set("B3", jp, ST.title); if (sub) s.set("B4", sub, ST.hdr);
       s.heights[2] = 26; s.heights[3] = 34;
@@ -428,6 +430,44 @@
     (d.strengths || []).forEach((t) => { OV.set("D" + prow, "強み　" + t, ST.inText); OV.merges.push(`D${prow}:F${prow}`); OV.heights[prow] = 32; prow++; });
     (d.risks || []).forEach((t) => { OV.set("D" + prow, "注意　" + t, ST.inText); OV.merges.push(`D${prow}:F${prow}`); OV.heights[prow] = 32; prow++; });
 
+    // ===== 立地スコア =====
+    const SCs = d.score || SCORE.map((c) => ({ name: c.name, items: c.items.map((it) => ({ ...it, on: !!it.def })) }));
+    const SS = mk("立地スコア", { A: 24, B: 46, C: 9, D: 9, E: 9 });
+    head(SS, 3, "LOCATION SCORE", "立地スコア", "当てはまる項目の「選ぶ」に○を付けると点数が入ります（グループごとにどれか1つ）", "E");
+    let sr2 = 6; const catTot = [];
+    SCs.forEach((cat) => {
+      SS.set("A" + sr2, cat.name, ST.headL); ["", "点数", "選ぶ", "得点"].forEach((t, i) => SS.set(colName(i + 1) + sr2, t, ST.head)); sr2++;
+      const r0 = sr2;
+      cat.items.forEach((it) => {
+        SS.set("A" + sr2, it.group ? `グループ${it.group}` : "", ST.note).set("B" + sr2, it.t, ST.cell).set("C" + sr2, it.p, ST.int)
+          .set("D" + sr2, it.on ? "○" : "", ST.inText).set("E" + sr2, it.on ? it.p : 0, ST.int, `IF(D${sr2}="○",C${sr2},0)`);
+        sr2++;
+      });
+      const tot = cat.items.reduce((a, it) => a + (it.on ? it.p : 0), 0);
+      SS.set("B" + sr2, "小計", ST.sumLabel).set("E" + sr2, tot, ST.sumRow, `SUM(E${r0}:E${sr2 - 1})`);
+      catTot.push({ name: cat.name.replace(/【\d】/, ""), v: tot, ref: `立地スコア!$E$${sr2}`, picked: cat.items.filter((it) => it.on).map((it) => it.t) });
+      sr2 += 2;
+    });
+    const scoreSum = catTot.reduce((a, c) => a + c.v, 0);
+    SS.set("B" + sr2, "立地スコア（合計）", ST.sumLabel).set("E" + sr2, scoreSum, ST.sumRow, catTot.map((c) => c.ref).join("+"));
+    const scoreRef = `立地スコア!$E$${sr2}`;
+    SS.set("A" + (sr2 + 1), "100点満点の立地評価です（出店計画書の採点表）。売上予測（オープンナビ）には使っていません。", ST.note); SS.merges.push(`A${sr2 + 1}:E${sr2 + 1}`);
+    SS.landscape = false; SS.fitH = 0;
+    // 計画地の概要に立地スコアのまとめ
+    let qr = Math.max(prow, 7) + 1;
+    OV.set("D" + qr, "立地スコア", ST.h2); OV.merges.push(`D${qr}:F${qr}`); qr++;
+    catTot.forEach((c) => { OV.set("D" + qr, c.name, ST.label).set("E" + qr, c.v, ST.int, c.ref); OV.set("F" + qr, "点", ST.n); qr++; });
+    OV.set("D" + qr, "合計（100点満点）", ST.sumLabel).set("E" + qr, scoreSum, ST.sumRow, scoreRef); OV.set("F" + qr, "点", ST.n); qr += 2;
+    // 写真（Googleストリートビュー）
+    const photos = (d.photos || []).filter((x) => x && x.data);
+    if (photos.length) {
+      OV.set("D" + qr, "計画地の様子", ST.h2); OV.merges.push(`D${qr}:F${qr}`); qr++;
+      OV.images = [];
+      photos.forEach((ph) => {
+        OV.set("D" + qr, ph.label + (ph.attr ? `（${ph.attr}）` : ""), ST.hdr); qr++;
+        OV.images.push({ data: ph.data, from: [3, qr - 1], to: [6, qr - 1 + 12] }); qr += 13;
+      });
+    }
     // ===== 計画の要点（1枚目） =====
     const SU = mk("計画の要点", { A: 3, B: 22, C: 22, D: 22, E: 22, F: 3, G: 22, H: 44 });
     head(SU, 1, "SUMMARY", "計画の要点", "候補地の評価と、収支の要点", "H");
@@ -450,13 +490,15 @@
     pts.forEach((t) => { SU.set("B" + hr, t, ST.inText); SU.merges.push(`B${hr}:E${hr}`); SU.heights[hr] = 30; hr++; });
     SU.set("G6", "計画の概要", ST.h2); SU.merges.push("G6:H6");
     kv.slice(0, 7).forEach(([l, val, f], i) => { SU.set("G" + (7 + i), l, ST.labelB).set("H" + (7 + i), val, ST.cell, f); SU.heights[7 + i] = Math.max(SU.heights[7 + i] || 0, 30); });
+    SU.set("G15", "立地スコア（100点満点）", ST.labelB).set("H15", scoreSum, ST.intB, scoreRef);
+    if (photos.length) { SU.set("G17", "計画地の様子（" + photos[0].label + "）", ST.hdr); SU.images = [{ data: photos[0].data, from: [6, 17], to: [8, 30] }]; hr = Math.max(hr, 31); }
     SU.set("B" + (hr + 1), "本資料の予測は当社の出店実績と公的統計にもとづく推計であり、売上を保証するものではありません。", ST.note); SU.merges.push(`B${hr + 1}:H${hr + 1}`);
 
     // ===== 表紙 =====
     const CV = mk("表紙", { A: 4, B: 26, C: 26, D: 26, E: 26, F: 26 });
     CV.set("B3", "LAUNDRY PRESS", ST.eyebrow);
-    CV.set("B8", "STORE OPENING PLAN", ST.eyebrow);
-    CV.set("B9", "出店計画書", ST.cover); CV.heights[9] = 54;
+    CV.set("B8", "BUSINESS PLAN", ST.eyebrow);
+    CV.set("B9", "事業計画書", ST.cover); CV.heights[9] = 54;
     CV.set("B11", v("name"), ST.coverS, p("name")); CV.heights[11] = 26;
     CV.set("B12", d.matched || d.address, ST.n);
     CV.set("B16", "CLIENT", ST.eyebrow).set("B17", v("client") ? v("client") + "　御中" : "", ST.textBig, `IF(${p("client")}="","",${p("client")}&"　御中")`);
@@ -465,19 +507,19 @@
     CV.set("B21", "黄色の欄は書き換えられます。数字は「前提条件」「初期投資」シートの黄色の欄を変えると、全部のシートが計算し直されます。", ST.note); CV.merges.push("B21:F21");
 
     // 並び（表紙→要点→…→前提条件）
-    const order = ["表紙", "計画の要点", "計画地の概要", "商圏分析", "競合店調査", "売上予測", "初期投資", "月間収支", "10年収支計画", "リスクと対策"];
+    const order = ["表紙", "計画の要点", "計画地の概要", "立地スコア", "商圏分析", "競合店調査", "売上予測", "初期投資", "月間収支", "10年収支計画", "リスクと対策"];
     const out = order.map((n) => sheets.find((s) => s.name === n)); out.push(pre);
     // ページ番号（表紙を除いて 01〜10）を並びに合わせて振り直す
-    out.slice(1, 10).forEach((s, i) => { s.set("A2", String(i + 1).padStart(2, "0"), ST.secNo); });
-    out.calc = { sales, invT, payback, cum10: Y[9].cum, Y, runPct, pay1, pay2, be, defLv, dz: dzV, tsubo: ts, cap, k: kk, scen, months: SEASON.map((s) => sales * s), counts: C };
+    out.slice(1, order.length).forEach((s, i) => { s.set("A2", String(i + 1).padStart(2, "0"), ST.secNo); });
+    out.calc = { scoreSum, catTot, sales, invT, payback, cum10: Y[9].cum, Y, runPct, pay1, pay2, be, defLv, dz: dzV, tsubo: ts, cap, k: kk, scen, months: SEASON.map((s) => sales * s), counts: C };
     return out;
   }
 
   async function makeKeikaku(d, type = "blob") {
     const sheets = build(d);
-    return PL().toBlob(sheets, type, STYLES, "出店計画書");
+    return PL().toBlob(sheets, type, STYLES, "事業計画書");
   }
-  const api = { makeKeikaku, build, EQUIP, OTHER, DEF, RAMP, SEASON };
+  const api = { makeKeikaku, build, EQUIP, OTHER, DEF, RAMP, SEASON, SCORE };
   root.OpenNaviKeikaku = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

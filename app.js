@@ -651,7 +651,7 @@
   $("#goTab2").addEventListener("click", () => showTab(2));
   $("#predictBtn").addEventListener("click", () => {
     if (!cur) return;
-    cur.shown = true; renderVerdict(); renderPrint(); renderPlanForm();
+    cur.shown = true; renderVerdict(); renderPrint(); renderPlanForm(); renderScore(); photosFor();
     $("#verdict").scrollIntoView({ behavior: "smooth", block: "start" });
   });
   // ボタンをタップした瞬間に光らせる
@@ -687,6 +687,84 @@
     }
   }
   const defaultName = () => "コインランドリー（" + (cur && cur.matched ? cur.matched.replace(/^.*?[都道府県]/, "").replace(/[0-9０-９一二三四五六七八九十〇]+丁目.*$|[0-9０-９].*$/, "") : "候補地") + "）";
+  // ---------------------------------------------------------------- 立地スコア（事業計画書に入れる。売上予測には使わない）
+  // 採点表は keikaku.js（出店計画書の採点表）。わかる項目はオープンナビの入力・自動判定から選んでおく
+  let SC = store.get("score1") || null;
+  const scoreDef = () => (window.OpenNaviKeikaku ? window.OpenNaviKeikaku.SCORE : null);
+  function scoreAuto() {
+    const D = scoreDef(); if (!D) return null;
+    const on = D.map((c) => c.items.map((it) => !!it.def));
+    const pick = (ci, t, v = true) => { const ii = D[ci].items.findIndex((it) => it.t === t); if (ii < 0) return; const g = D[ci].items[ii].group;
+      if (g && v) D[ci].items.forEach((it, k) => { if (it.group === g) on[ci][k] = false; }); on[ci][ii] = v; };
+    const clearCat = (ci) => { on[ci] = on[ci].map(() => false); };
+    pick(0, ["15坪未満", "15坪未満", "15〜20坪未満", "20〜25坪未満", "25〜30坪未満", "30〜40坪未満", "30〜40坪未満"][S.tsubo]);
+    pick(1, S.road === 0 ? "買い物ルート等の生活道路沿い（中央分離帯なし）" : S.median ? "交通量の多い幹線道路沿い（中央分離帯なし）" : "交通量の多い幹線道路沿い（中央分離帯あり）");
+    pick(2, ["駐車場0〜1台", "駐車場2〜4台", "駐車場5〜7台", "駐車場5〜7台", "駐車場8〜10台以上", "駐車場8〜10台以上"][S.park]);
+    pick(2, "駐車しやすい駐車場", !!(S.park > 0 && S.parkEase)); pick(2, "他店との兼用駐車場", false);
+    if (cur) { const k1 = sumWithin(1); pick(3, k1.single / Math.max(1, k1.hh) >= APT_RATIO ? "マンション・商業施設混在の都市型" : "一戸建てとマンションが混在"); }
+    pick(3, "鉄道や川で商圏が分断", CK.split === 1);
+    pick(4, "大型商業施設の敷地内", false); pick(4, "夜でも明るい", S.see !== 0);
+    clearCat(5);
+    if (cur) {
+      const [r1] = radii(), n1 = cur.comps.filter((c) => !c.closed && c.km <= r1).length;
+      if (S.rival === 1) pick(5, "第1商圏にAクラス競合"); else if (n1 >= 2) pick(5, "第1商圏にCクラス競合2店以上"); else if (n1 === 1) pick(5, "第1商圏にCクラス競合");
+    }
+    return on;
+  }
+  const scoreData = () => { const D = scoreDef(); if (!D) return null; const on = SC && SC.length === D.length ? SC : scoreAuto();
+    return D.map((c, ci) => ({ name: c.name, items: c.items.map((it, ii) => ({ ...it, on: !!(on[ci] && on[ci][ii]) })) })); };
+  async function renderScore() {
+    const box = $("#scoreBody"); if (!box) return;
+    if (!window.OpenNaviKeikaku) { try { if (!window.OpenNaviPlan) await loadScript("plan.js?v=7"); await loadScript("keikaku.js?v=2"); } catch (e) { return; } }
+    const data = scoreData(); if (!data) return;
+    if (!SC) SC = data.map((c) => c.items.map((it) => it.on));
+    box.textContent = "";
+    let total = 0;
+    data.forEach((cat, ci) => {
+      const sum = cat.items.reduce((a, it) => a + (it.on ? it.p : 0), 0); total += sum;
+      const det = document.createElement("details"); det.className = "sc-cat";
+      det.innerHTML = `<summary><span></span><b>${sum}点</b></summary>`;
+      det.querySelector("span").textContent = cat.name.replace(/【\d】/, "");
+      cat.items.forEach((it, ii) => {
+        const l = document.createElement("label"); l.className = "sc-item";
+        l.innerHTML = `<input type="${it.group ? "radio" : "checkbox"}"><span></span><i>${it.p > 0 ? "+" : ""}${it.p}</i>`;
+        l.querySelector("span").textContent = it.t;
+        const c = l.querySelector("input"); c.checked = it.on; if (it.group) c.name = `sc${ci}${it.group}`;
+        c.addEventListener("click", () => {
+          if (it.group) { if (SC[ci][ii]) { c.checked = false; SC[ci][ii] = false; } else { cat.items.forEach((x, k) => { if (x.group === it.group) SC[ci][k] = false; }); SC[ci][ii] = true; } }
+          else SC[ci][ii] = c.checked;
+          store.set("score1", SC); const open = [...box.querySelectorAll("details")].map((x) => x.open); renderScore().then(() => box.querySelectorAll("details").forEach((x, k) => (x.open = open[k])));
+        });
+        det.appendChild(l);
+      });
+      box.appendChild(det);
+    });
+    $("#scoreTotal").textContent = total + "点";
+  }
+  // 計画地の写真（Googleストリートビュー）: 外観（計画地の方向）と前面の通り（道路に沿った方向）
+  const brg = (y1, x1, y2, x2) => { const p1 = y1 * Math.PI / 180, p2 = y2 * Math.PI / 180, dl = (x2 - x1) * Math.PI / 180;
+    return (Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)) * 180 / Math.PI + 360) % 360; };
+  async function sitePhotos(lat, lon) {
+    if (!USE_GOOGLE || !window.google) return [];
+    const { StreetViewService, StreetViewSource } = await google.maps.importLibrary("streetView");
+    const sv = new StreetViewService();
+    for (const radius of [40, 80, 150]) {
+      try {
+        const r = await sv.getPanorama({ location: { lat, lng: lon }, radius, sources: [StreetViewSource.OUTDOOR] });
+        const ll = r.data.location.latLng, pano = encodeURIComponent(r.data.location.pano), hd = brg(ll.lat(), ll.lng(), lat, lon);
+        const lk = (r.data.links || []).map((l) => l.heading).filter((h) => h != null);
+        const off = (a) => Math.abs(((a - hd + 540) % 360) - 180) - 90;
+        const along = lk.length ? lk.reduce((b, h) => (Math.abs(off(h)) < Math.abs(off(b)) ? h : b)) : (hd + 90) % 360;
+        const u = (h, fov) => `https://maps.googleapis.com/maps/api/streetview?size=640x420&pano=${pano}&heading=${h.toFixed(0)}&fov=${fov}&pitch=2&key=${encodeURIComponent(CFG.googleApiKey)}`;
+        const list = [{ label: "外観", url: u(hd, 75) }, { label: "前面の通り", url: u(along, 85) }];
+        await Promise.all(list.map(async (x) => { const res = await fetch(x.url); if (res.ok) x.data = new Uint8Array(await res.arrayBuffer()); x.attr = "Googleストリートビュー"; }));
+        return list.filter((x) => x.data);
+      } catch (e) { /* 次の半径で */ }
+    }
+    return [];
+  }
+  const photosFor = () => { if (!cur) return Promise.resolve([]); if (!cur.photoP) cur.photoP = sitePhotos(cur.lat, cur.lon).catch(() => []); return cur.photoP; };
+
   function planData() {
     const e = estimate(), [r1, r2] = radii(), [g, gl] = GRADES[e.grade];
     const k1 = sumWithin(1), k2 = sumWithin(2), ring1 = sumWithin(r1), ring2 = sumWithin(r2, r1), h05 = sumWithin(0.5).hh;
@@ -730,7 +808,7 @@
       areaRows: [{ label: `第1商圏（半径${r1}km）`, ...ring1, sum: true }, { label: `第2商圏（${r1}〜${r2}km）`, ...ring2, sum: true },
         { label: "参考: 500m以内", ...sumWithin(0.5) }, { label: "参考: 1km以内", ...k1 }, { label: "参考: 2km以内", ...k2 }],
       bands: [["0〜500m", h05], ["500m〜1km", sumWithin(1, 0.5).hh], ["1〜2km", sumWithin(2, 1).hh]],
-      zone: zoneText(),
+      zone: zoneText(), score: scoreData(),
       keikaku: { client: planIn.client || "", area: Math.round([10, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5][S.tsubo] * 3.3058 * 10) / 10, park: [0, 3, 5, 7, 10, 11][S.park] },
       comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
@@ -749,11 +827,12 @@
     btn.disabled = true; msg.textContent = "つくっています…";
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=6");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=1");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=2");
       const d = planData();
+      d.photos = await photosFor();
       const blob = await window.OpenNaviKeikaku.makeKeikaku(d);
-      const fname = `出店計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
+      const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
       const file = new File([blob], fname, { type: blob.type });
       // スマホは「共有」からファイルに保存・LINEやメールで送れるように
       if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) {
@@ -772,13 +851,14 @@
     const msg = $("#planMsg");
     document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
     try {
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=6");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=1");
-      showPlanView(planData());
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=2");
+      const d = planData(); d.photos = await photosFor();
+      showPlanView(d);
     } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }
   });
   function showPlanView(d) {
-    // エクセル（出店計画書）と同じ計算を使う
+    // エクセル（事業計画書）と同じ計算を使う
     const c = window.OpenNaviKeikaku.build(d).calc, A = d.inputs, Y = c.Y;
     const h = (t) => String(t).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[m]);
     const m4 = (v) => { const x = Math.round(v); return (x < 0 ? "−" : "") + Math.abs(x).toLocaleString("ja-JP"); };
@@ -792,7 +872,7 @@
     box.innerHTML = `
       <div class="pv-bar"><button type="button" class="btn ghost" data-a="close">閉じる</button><button type="button" class="btn" data-a="pdf">PDFで保存</button></div>
       <article class="pv-doc">
-        <header class="pv-hero"><p class="pv-eye">STORE OPENING PLAN</p><h1>出店計画書</h1><p class="pv-name">${h(A.name)}</p>
+        <header class="pv-hero"><p class="pv-eye">BUSINESS PLAN</p><h1>事業計画書</h1><p class="pv-name">${h(A.name)}</p>
           <p class="pv-sub">${h(d.address)}${A.open ? "　開業予定 " + h(A.open) : ""}${planIn.client ? "<br>" + h(planIn.client) + "　御中" : ""}</p></header>
         <section class="pv-kpi">
           <div><span>予測月商（開業3年目）</span><b>${mn(c.sales)}<small>万円</small></b><small>${h(d.est.mark)} ${h(d.est.markText)}（${h(d.est.bandText)}）</small></div>
@@ -812,6 +892,9 @@
         <table class="pv-tbl"><thead><tr><th></th><th>3年目の月の手残り</th><th>10年累計</th></tr></thead><tbody>
           ${c.scen.map((x) => `<tr><th>${h(x.name)}</th><td class="${x.m3p < 0 ? "neg" : ""}">${m4(x.m3p)}</td><td class="${x.cum < 0 ? "neg" : ""}">${m4(x.cum)}</td></tr>`).join("")}
         </tbody></table>
+        ${(d.photos || []).length ? `<h2>計画地の様子</h2><div class="pv-photos">${d.photos.map((x) => `<figure><img src="${URL.createObjectURL(new Blob([x.data], { type: "image/jpeg" }))}" alt="${h(x.label)}"><figcaption>${h(x.label)}<small>${h(x.attr || "")}</small></figcaption></figure>`).join("")}</div>` : ""}
+        <h2>立地スコア<small>100点満点</small></h2>
+        <div class="pv-score"><b>${c.scoreSum}<small>点</small></b><ul>${c.catTot.map((x) => `<li><span>${h(x.name)}</span><i style="--w:${Math.max(0, Math.min(100, x.v / 30 * 100))}%"></i><em>${x.v}</em></li>`).join("")}</ul></div>
         <h2>商圏</h2><ul class="pv-area">${areas}</ul>
         <p class="pv-note">${h(d.zone ? "用途地域：" + d.zone : "")}</p>
         <p class="pv-note">${h(d.compText || "")}</p>
@@ -1000,6 +1083,7 @@
       [cur.chkAuto, cur.zone] = await Promise.all([checkAuto(g.lat, g.lon).catch(() => null), zoneSurvey(g.lat, g.lon).catch(() => null)]);
       if (cur.chkAuto) CK.route = cur.chkAuto.route ? 1 : 2;
       store.set("check1", CK);
+      SC = null; store.set("score1", null);
       renderSpec();
       active = -1;
       $("#compnote").textContent = cres.note + `（半径${searchKm}kmまで検索）`;

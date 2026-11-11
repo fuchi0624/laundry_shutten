@@ -533,3 +533,26 @@ body.pv-open{overflow:hidden}
   .pv-doc h2,.pv-tbl,.pv-kpi,.pv-area,.pv-dl{break-inside:avoid}
 }
 @page pv{size:A4 portrait;margin:12mm}
+
+/* 立地スコア（事業計画書用） */
+.score-box{margin:4px 0 12px;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line)}
+.score-head{display:flex;justify-content:space-between;align-items:baseline}.score-head h4{margin:0;font-size:.95rem}
+.score-head b{font-family:var(--f-num);font-size:1.3rem;color:var(--accent-deep)}
+.score-box .note{margin:4px 0 8px;font-size:.74rem}
+.sc-cat{border-top:1px solid var(--line)}
+.sc-cat summary{display:flex;justify-content:space-between;padding:10px 2px;cursor:pointer;font-weight:700;font-size:.88rem;list-style:none}
+.sc-cat summary::-webkit-details-marker{display:none}
+.sc-cat summary b{font-family:var(--f-num);color:var(--accent-deep)}
+.sc-item{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;min-height:38px;font-size:.84rem}
+.sc-item input{width:20px;height:20px;accent-color:var(--accent)}
+.sc-item i{font-style:normal;font-family:var(--f-num);color:var(--muted)}
+.pv-photos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pv-photos figure{margin:0}.pv-photos img{width:100%;aspect-ratio:64/42;object-fit:cover;border-radius:12px;display:block}
+.pv-photos figcaption{font-size:.74rem;font-weight:700;margin-top:4px;display:grid}.pv-photos small{font-weight:400;color:var(--muted)}
+.pv-score{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.pv-score>b{font-family:var(--f-num);font-size:2.4rem;color:var(--accent-deep);line-height:1}.pv-score>b small{font-size:.9rem}
+.pv-score ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.pv-score li{display:grid;grid-template-columns:8.5em 1fr 2em;gap:6px;align-items:center;font-size:.74rem}
+.pv-score li i{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--accent) var(--w),var(--line) var(--w))}
+.pv-score li em{font-style:normal;text-align:right;font-family:var(--f-num)}
+@media print{.pv-photos,.pv-score{break-inside:avoid}}
