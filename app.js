@@ -739,7 +739,7 @@
     btn.disabled = true; msg.textContent = "つくっています…";
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
-      if (!window.OpenNaviPlan) await loadScript("plan.js?v=4");
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=5");
       const d = planData();
       const blob = await window.OpenNaviPlan.makePlan(d);
       const fname = `事業計画書_${d.inputs.name.replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
@@ -755,6 +755,59 @@
       console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。";
     } finally { btn.disabled = false; }
   });
+  // スマホで見る事業計画書（その場で画面に出す。PDFは印刷から保存）
+  $("#planViewBtn").addEventListener("click", async () => {
+    if (!cur) return;
+    const msg = $("#planMsg");
+    document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
+    try {
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=5");
+      showPlanView(planData());
+    } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }
+  });
+  function showPlanView(d) {
+    const c = window.OpenNaviPlan.calc(d), A = d.inputs, Y = c.Y;
+    const h = (t) => String(t).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[m]);
+    const mn = (v) => { const x = Math.round(v / 1e4); return (x < 0 ? "−" : "") + Math.abs(x).toLocaleString("ja-JP"); };
+    const loan = Math.max(0, A.invest - A.own);
+    const row = (label, k, strong) => `<tr${strong ? ' class="pv-strong"' : ""}><th>${label}</th>${Y.map((y) => `<td class="${(typeof k === "function" ? k(y) : y[k]) < 0 ? "neg" : ""}">${mn(typeof k === "function" ? k(y) : y[k])}</td>`).join("")}</tr>`;
+    const fx = (y) => y.fx.reduce((a, b) => a + b, 0);
+    const list = (t, txt) => { const it = String(txt || "").split("。").map((x) => x.trim()).filter(Boolean); return it.length ? `<h2>${t}</h2><ul class="pv-list">${it.map((x) => `<li>${h(x)}</li>`).join("")}</ul>` : ""; };
+    const areas = d.areaRows.filter((r) => r.sum).map((r) => `<li><span>${h(r.label)}</span><b>${fmt(r.hh)}<small>世帯</small></b><em>人口 ${fmt(r.pop)}人</em></li>`).join("");
+    const box = document.createElement("div"); box.id = "planView"; box.className = "pv";
+    box.innerHTML = `
+      <div class="pv-bar"><button type="button" class="btn ghost" data-a="close">閉じる</button><button type="button" class="btn" data-a="pdf">PDFで保存</button></div>
+      <article class="pv-doc">
+        <header class="pv-hero"><p class="pv-eye">BUSINESS PLAN</p><h1>事業計画書</h1><p class="pv-name">${h(A.name)}</p>
+          <p class="pv-sub">${h(d.address)}${A.open ? "　開業予定 " + h(A.open) : ""}</p></header>
+        <section class="pv-kpi">
+          <div><span>売上の見込み（3年目）</span><b>${h(d.est.bandText)}</b><small>${h(d.est.mark)} ${h(d.est.markText)}</small></div>
+          <div><span>3年目の経常利益（年）</span><b class="${Y[2].ord < 0 ? "neg" : ""}">${mn(Y[2].ord)}<small>万円</small></b></div>
+          <div><span>1日の来店客数（3年目）</span><b>約${Math.round(c.dayCust3)}<small>人</small></b><small>損益分岐 約${Math.round(c.bepDay)}人</small></div>
+        </section>
+        <p class="pv-judge ${c.ok ? "ok" : "ng"}">${c.ok ? "採算が見込めます" : "採算に注意が必要です"}<small>${c.ok ? `1日の来店客数が損益分岐点（約${Math.round(c.bepDay)}人）を上回っています` : `1日の来店客数が損益分岐点（約${Math.round(c.bepDay)}人）を下回ります。家賃・初期投資・集客策を見直してください`}</small></p>
+        <h2>収支計画<small>単位：万円</small></h2>
+        <table class="pv-tbl"><thead><tr><th></th><th>1年目</th><th>2年目</th><th>3年目</th></tr></thead><tbody>
+          ${row("売上高", "sales", true)}${row("変動費", "vc")}${row("固定費", fx)}<tr><th class="pv-ind">うち家賃</th>${Y.map((y) => `<td>${mn(y.fx[1])}</td>`).join("")}</tr><tr><th class="pv-ind">うち減価償却</th>${Y.map((y) => `<td>${mn(y.fx[3])}</td>`).join("")}</tr>
+          ${row("営業利益", "op", true)}${row("支払利息", "interest")}${row("経常利益", "ord", true)}${row("借入金の返済", "repay")}${row("手元に残るお金", "cf", true)}
+        </tbody></table>
+        <p class="pv-note">売上は${h(A.salesNote)}を使っています。1年目は3年目の80%、2年目は92%です。</p>
+        <h2>商圏</h2><ul class="pv-area">${areas}</ul>
+        <p class="pv-note">${h(d.compText || "")}</p>
+        <h2>資金計画</h2>
+        <dl class="pv-dl"><dt>初期投資</dt><dd>${mn(A.invest)}万円</dd><dt>自己資金</dt><dd>${mn(A.own)}万円</dd><dt>借入金</dt><dd>${mn(loan)}万円（金利${A.rate * 100}%・${A.years}年返済）</dd><dt>家賃（月）</dt><dd>${mn(A.rent)}万円</dd><dt>損益分岐点</dt><dd>月の売上 ${mn(c.bep / 12)}万円</dd></dl>
+        ${list("強み", d.strengths)}${list("リスクと対策", d.risks)}
+        <footer class="pv-foot">ランドリーオープンナビ　｜　売上の見込みはランドリープレスの売上実績をもとに算出　｜　人口・世帯数は令和2年国勢調査　｜　作成日 ${h(d.created || "")}</footer>
+      </article>`;
+    document.getElementById("planView")?.remove();
+    document.body.appendChild(box); document.body.classList.add("pv-open");
+    const y0 = window.scrollY; box.scrollTop = 0;
+    box.addEventListener("click", (ev) => {
+      const a = ev.target.closest("[data-a]")?.dataset.a;
+      if (a === "close") { box.remove(); document.body.classList.remove("pv-open"); window.scrollTo(0, y0); }
+      if (a === "pdf") window.print();
+    });
+  }
   renderPlanForm();
 
   $("#specReset")?.addEventListener("click", () => { S = { ...SPEC0 }; store.set("spec5", S); CK = {}; store.set("check1", CK); renderSpec(); if (cur) { renderVerdict(); renderPrint(); } });

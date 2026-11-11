@@ -372,14 +372,18 @@
     gap();
     sm.set("A" + i, "※黄色の欄は自由に書き換えてください。数字は「前提条件」シートを変えると計算し直されます。", ST.note); sm.merges.push(`A${i}:B${i}`); sm.heights[i] = 30;
 
-    return [sm, pre, area, fc, pl];
+    const sheets = [sm, pre, area, fc, pl];
+    // スマホ画面の事業計画書用に、計算結果も渡す
+    sheets.calc = { Y, bep, bepDay, dayCust3, ok, P: Object.fromEntries(Object.entries(P).map(([k, o]) => [k, o.v])) };
+    return sheets;
   }
+  const calc = (d) => build(d).calc;
 
   async function makePlan(d, type = "blob") {
     if (!JSZipLib()) throw new Error("jszip");
     return toBlob(build(d), type);
   }
-  const api = { makePlan, build };
+  const api = { makePlan, build, calc };
   root.OpenNaviPlan = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
