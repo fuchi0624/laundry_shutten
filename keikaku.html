@@ -1270,7 +1270,7 @@ function pMap(F){
   const C=F.o.laund,G=!!LAST.gcomp,cOk=G||!LAST.osmErr,R=F.R;
   return [`競合店の分布と、商圏内の世帯の集まり方（色の濃さ＝250mメッシュの世帯数）`,`<div class="cols w64"><div><div id="map"></div></div><div>
    <div class="legend" style="flex-direction:column;gap:4px">
-    <span><i style="background:#ed6c00;border-radius:50%"></i>候補地</span><span><i style="background:#26201b;border-radius:50%"></i>競合コインランドリー（番号は「競合店調査」の掲載店）</span>${G?'':'<span><i style="background:#2a9d8f;border-radius:50%"></i>スーパー</span><span><i style="background:#3a78c9;border-radius:50%"></i>小学校</span>'}<span>実線＝第1商圏（${kmL(R[0])}）　点線＝第2商圏（${kmL(R[1])}）</span></div>
+    <span><i style="background:#ed6c00;border-radius:50%"></i>候補地</span><span><i style="background:#26201b;border-radius:50%"></i>競合コインランドリー（番号は「競合店調査」の掲載店）</span>${G?'':'<span><i style="background:#2a9d8f;border-radius:50%"></i>スーパー</span><span><i style="background:#3a78c9;border-radius:50%"></i>小学校</span>'}<span><i style="background:none;border:2.5px solid #e2621b;border-radius:50%;box-sizing:border-box"></i>第1商圏（${kmL(R[0])}）</span><span><i style="background:none;border:2px dashed #f39a4c;border-radius:50%;box-sizing:border-box"></i>第2商圏（${kmL(R[1])}）</span></div>
    <div class="grid3" style="grid-template-columns:1fr;gap:10px;margin-top:14px">
     <div class="stat hl"><div class="l">第1商圏内の競合（0〜${kmL(R[0])}）</div><div class="v">${cOk?F.cA.length:'—'}<small>店</small></div></div>
     <div class="stat"><div class="l">第2商圏内の競合（${kmL(R[0])}〜${kmL(R[1])}）</div><div class="v">${cOk?F.cB.length:'—'}<small>店</small></div></div>
@@ -1301,8 +1301,8 @@ function drawMap(F){
   const vals=Object.values(c.mesh).map(m=>m['0340']||0),mx=Math.max(...vals,1);
   for(const k in c.mesh){const [y,x]=meshCenter(k),h=c.mesh[k]['0340']||0;if(!h||dist(c.lat,c.lon,y,x)>F.R[1]+150)continue;
     L.rectangle([[y-3.75/3600,x-5.625/3600],[y+3.75/3600,x+5.625/3600]],{stroke:false,fillColor:'#ed6c00',fillOpacity:Math.min(.6,.05+.55*h/mx)}).bindTooltip(`世帯 ${yen(h)}`).addTo(map)}
-  L.circle([c.lat,c.lon],{radius:F.R[1],color:'#26201b',weight:1.5,fill:false,dashArray:'6 5'}).addTo(map);
-  L.circle([c.lat,c.lon],{radius:F.R[0],color:'#26201b',weight:2,fill:false}).addTo(map);
+  L.circle([c.lat,c.lon],{radius:F.R[1],color:'#f39a4c',weight:2.5,fill:false,dashArray:'8 6'}).addTo(map);
+  L.circle([c.lat,c.lon],{radius:F.R[0],color:'#e2621b',weight:3,fill:false}).addTo(map);
   const dot=(y,x,col,tip,r=6)=>L.circleMarker([y,x],{radius:r,color:'#fff',weight:1.5,fillColor:col,fillOpacity:1}).bindTooltip(tip).addTo(map);
   F.o.sup.forEach(s=>dot(s.y,s.x,'#2a9d8f',`スーパー：${s.name}`,5));F.o.elem.forEach(s=>dot(s.y,s.x,'#3a78c9',s.name,5));
   F.cIn.forEach(s=>{const i=F.feat.indexOf(s);if(i>=0)L.marker([s.y,s.x],{icon:L.divIcon({className:'',html:`<div style="background:#26201b;color:#fff;font:600 12px/22px Barlow Condensed,sans-serif;width:24px;height:24px;border-radius:50%;text-align:center;border:2px solid #ed6c00">${i+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]})}).bindTooltip(s.name).addTo(map);else dot(s.y,s.x,'#26201b',`競合：${s.name}（${Math.round(s.d)}m）`,6)});
@@ -1317,8 +1317,8 @@ function drawGoogle(F){
   const vals=Object.values(c.mesh).map(m=>m['0340']||0),mx=Math.max(...vals,1);
   for(const k in c.mesh){const [y,x]=meshCenter(k),h=c.mesh[k]['0340']||0;if(!h||dist(c.lat,c.lon,y,x)>F.R[1]+150)continue;
     new g.Rectangle({map,bounds:{south:y-3.75/3600,north:y+3.75/3600,west:x-5.625/3600,east:x+5.625/3600},strokeOpacity:0,fillColor:'#ed6c00',fillOpacity:Math.min(.45,.04+.42*h/mx),clickable:false})}
-  const outer=new g.Circle({map,center:ctr,radius:F.R[1],strokeColor:'#26201b',strokeOpacity:.7,strokeWeight:1.5,fillOpacity:0,clickable:false});
-  new g.Circle({map,center:ctr,radius:F.R[0],strokeColor:'#26201b',strokeWeight:2.5,fillOpacity:0,clickable:false});
+  const outer=new g.Circle({map,center:ctr,radius:F.R[1],strokeColor:'#f39a4c',strokeOpacity:.9,strokeWeight:2.5,fillOpacity:0,clickable:false});
+  new g.Circle({map,center:ctr,radius:F.R[0],strokeColor:'#e2621b',strokeWeight:3,fillOpacity:0,clickable:false});
   const svg=(t,fill,ring,sz)=>({url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}"><circle cx="${sz/2}" cy="${sz/2}" r="${sz/2-2}" fill="${fill}" stroke="${ring}" stroke-width="2.5"/>${t?`<text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-weight="700" font-size="${sz*.5}" fill="#fff">${t}</text>`:''}</svg>`),
     scaledSize:new g.Size(sz,sz),anchor:new g.Point(sz/2,sz/2)});
   F.cIn.forEach(s=>{const i=F.feat.indexOf(s);new g.Marker({map,position:{lat:s.y,lng:s.x},title:s.name,icon:i>=0?svg(i+1,'#26201b','#ed6c00',26):svg('','#26201b','#fff',13),zIndex:i>=0?50:10})});
