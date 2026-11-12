@@ -663,7 +663,7 @@
   // ---------------------------------------------------------------- 事業計画書（Excel）
   // 「商圏分析と事業計画書の自動作成」と同じ形式・同じ費用の前提で、売上はこの売上予測を使う
   const PLAN0 = { open: "", rent: 150000, invest: 25000000, own: 5000000 };
-  const PLAN_FIELDS = [["name", "店舗名", "text"], ["client", "客先名（表紙に入ります・任意）", "text", "例: 株式会社〇〇"], ["open", "開業予定日", "text", "例: 2027年4月"], ["rent", "家賃（月）", "yen"]];
+  const PLAN_FIELDS = [["name", "店舗名", "text"], ["client", "客先名（表紙に入ります・任意）", "text", "例: 株式会社〇〇"], ["open", "開業予定日", "text", "例: 2027年4月"], ["rent", "家賃（月）", "yen"], ["invest2", "初期投資額（税込）", "yen0", "空欄なら自動計算"]];
   let planIn = { ...PLAN0, ...(store.get("plan") || {}) };
   const loadScript = (src) => new Promise((ok, ng) => { const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = ng; document.head.appendChild(t); });
   function renderPlanForm() {
@@ -671,16 +671,18 @@
     box.textContent = "";
     for (const [k, label, type, ph] of PLAN_FIELDS) {
       const l = document.createElement("label"); l.className = "plan-f";
-      l.innerHTML = `<span></span><div class="field"><input${type === "yen" ? ' inputmode="numeric"' : ""}>${type === "yen" ? "<small>円</small>" : ""}</div>`;
+      l.innerHTML = `<span></span><div class="field"><input${type !== "text" ? ' inputmode="numeric"' : ""}>${type !== "text" ? "<small>円</small>" : ""}</div>`;
       l.querySelector("span").textContent = label;
       const inp = l.querySelector("input"); inp.dataset.k = k;
       if (ph) inp.placeholder = ph;
       const v = k === "name" ? (planIn.name || "") : (planIn[k] ?? "");
-      inp.value = type === "yen" ? fmt(v) : v;
+      inp.value = type === "yen" || (type === "yen0" && v !== "") ? fmt(v) : v;
       if (k === "name") inp.placeholder = defaultName();
       inp.addEventListener("change", () => {
-        planIn[k] = type === "yen" ? Math.max(0, +inp.value.replace(/[^\d]/g, "") || 0) : inp.value.trim();
-        if (type === "yen") inp.value = fmt(planIn[k]);
+        const dg = inp.value.replace(/[^\d]/g, "");
+        const man = /万/.test(inp.value) ? 10000 : 1;
+        planIn[k] = type === "yen" ? Math.max(0, +dg * man || 0) : type === "yen0" ? (+dg > 0 ? +dg * man : "") : inp.value.trim();
+        if (type !== "text") inp.value = planIn[k] === "" ? "" : fmt(planIn[k]);
         store.set("plan", planIn);
       });
       box.appendChild(l);
@@ -715,7 +717,7 @@
     return D.map((c, ci) => ({ name: c.name, items: c.items.map((it, ii) => ({ ...it, on: !!(on[ci] && on[ci][ii]) })) })); };
   async function renderScore() {
     const box = $("#scoreBody"); if (!box) return;
-    if (!window.OpenNaviKeikaku) { try { if (!window.OpenNaviPlan) await loadScript("plan.js?v=7"); await loadScript("keikaku.js?v=2"); } catch (e) { return; } }
+    if (!window.OpenNaviKeikaku) { try { if (!window.OpenNaviPlan) await loadScript("plan.js?v=7"); await loadScript("keikaku.js?v=3"); } catch (e) { return; } }
     const data = scoreData(); if (!data) return;
     if (!SC) SC = data.map((c) => c.items.map((it) => it.on));
     box.textContent = "";
@@ -811,7 +813,7 @@
         { label: "参考: 500m以内", ...sumWithin(0.5) }, { label: "参考: 1km以内", ...k1 }, { label: "参考: 2km以内", ...k2 }],
       bands: [["0〜500m", h05], ["500m〜1km", sumWithin(1, 0.5).hh], ["1〜2km", sumWithin(2, 1).hh]],
       zone: zoneText(), score: scoreData(),
-      keikaku: { client: planIn.client || "", area: Math.round([10, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5][S.tsubo] * 3.3058 * 10) / 10, park: [0, 3, 5, 7, 10, 11][S.park] },
+      keikaku: { client: planIn.client || "", invest: +planIn.invest2 > 0 ? +planIn.invest2 : 0, area: Math.round([10, 12.5, 17.5, 22.5, 27.5, 32.5, 37.5][S.tsubo] * 3.3058 * 10) / 10, park: [0, 3, 5, 7, 10, 11][S.park] },
       comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
       compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
@@ -830,7 +832,7 @@
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
       if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=2");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
       const d = planData();
       d.photos = await photosFor();
       const blob = await window.OpenNaviKeikaku.makeKeikaku(d);
@@ -854,7 +856,7 @@
     document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
     try {
       if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=2");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
       const d = planData(); d.photos = await photosFor();
       showPlanView(d);
     } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }

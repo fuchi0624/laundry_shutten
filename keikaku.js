@@ -124,6 +124,8 @@
     inp("c_det", "洗剤・柔軟剤（売上に対する割合）", DEF.c_det, ST.inPct);
     const runPct = DEF.c_el + DEF.c_gas + DEF.c_wat + DEF.c_det;
     calc("run", "ランニングコスト（合計）", runPct, ST.pct, `SUM(B${r - 4}:B${r - 1})`);
+    sec("初期投資");
+    inp("invIn", "初期投資額（税込・円）", K.invest > 0 ? K.invest : 0, ST.inYen, "0なら「初期投資」シートの機械・工事から計算。入れるとこの金額を使います");
     sec("借入");
     inp("loan_r", "借入金利（年）", DEF.loan_r, ST.inPct, "初期投資（税込）の全額を借り入れると仮定");
     inp("loan_y", "返済年数（機械・工事）", DEF.loan_y, ST.inInt);
@@ -192,19 +194,24 @@
     ein("内装・看板工事", K.interior != null ? K.interior : DEF.interior, "interior");
     ein("出精値引（引く金額）", DEF.disc, "disc");
     ir++;
-    const invEx = machineInv + otherInv + v("elec") + v("interior") - v("disc"), tax = Math.round(invEx * 0.1), invT = invEx + tax;
-    const facil = machineInv + otherInv - v("disc"), bld = v("elec") + v("interior");
+    // 初期投資額を直接入れたときは、その金額を使う（借入の内訳は計算した割合で分ける）
+    const calcEx = machineInv + otherInv + v("elec") + v("interior") - v("disc"), invInV = v("invIn");
+    const invEx = invInV > 0 ? Math.round(invInV / 1.1) : calcEx, tax = invInV > 0 ? invInV - invEx : Math.round(invEx * 0.1), invT = invEx + tax;
+    const kInv = calcEx ? invEx / calcEx : 1;
+    const facil = (machineInv + otherInv - v("disc")) * kInv, bld = (v("elec") + v("interior")) * kInv;
     const pay1 = pmt(facil * 1.1, v("loan_r") / 12, v("loan_y") * 12), pay2 = pmt(bld * 1.1, v("loan_r") / 12, v("loan_y2") * 12);
     inv.set("A" + ir, "合計", ST.h2); ir++;
     const tot = (label, val, f, key, s = ST.yenB) => { inv.set("A" + ir, label, ST.labelB); inv.merges.push(`A${ir}:G${ir}`); inv.set("H" + ir, Math.round(val), s, f); P[key] = { ref: `初期投資!$H$${ir}`, v: val }; ir++; };
-    tot("初期投資（税抜）", invEx, `${mTot}+${oTot}+${p("elec")}+${p("interior")}-${p("disc")}`, "inv", ST.yen);
-    tot("消費税（10%）", tax, `ROUND(${P.inv.ref}*0.1,0)`, "tax", ST.yen);
+    tot("機械・工事から計算した額（税抜）", calcEx, `${mTot}+${oTot}+${p("elec")}+${p("interior")}-${p("disc")}`, "calcEx", ST.yen);
+    tot("初期投資（税抜）", invEx, `IF(${p("invIn")}>0,ROUND(${p("invIn")}/1.1,0),${P.calcEx.ref})`, "inv", ST.yen);
+    tot("消費税（10%）", tax, `IF(${p("invIn")}>0,${p("invIn")}-${P.inv.ref},ROUND(${P.inv.ref}*0.1,0))`, "tax", ST.yen);
     tot("初期投資の総額（税込）", invT, `${P.inv.ref}+${P.tax.ref}`, "invT");
-    tot("借入（機械・工事分・税込）", facil * 1.1, `(${mTot}+${oTot}-${p("disc")})*1.1`, "facil", ST.yen);
-    tot("借入（内装・電気分・税込）", bld * 1.1, `(${p("elec")}+${p("interior")})*1.1`, "build", ST.yen);
+    tot("借入（機械・工事分・税込）", facil * 1.1, `(${mTot}+${oTot}-${p("disc")})*${P.inv.ref}/${P.calcEx.ref}*1.1`, "facil", ST.yen);
+    tot("借入（内装・電気分・税込）", bld * 1.1, `(${p("elec")}+${p("interior")})*${P.inv.ref}/${P.calcEx.ref}*1.1`, "build", ST.yen);
     tot("月々の返済（機械・工事）", pay1, `IF(${p("loan_y")}<=0,0,PMT(${p("loan_r")}/12,${p("loan_y")}*12,-${P.facil.ref}))`, "pay1", ST.yen);
     tot("月々の返済（内装・電気）", pay2, `IF(${p("loan_y2")}<=0,0,PMT(${p("loan_r")}/12,${p("loan_y2")}*12,-${P.build.ref}))`, "pay2", ST.yen);
     ir++;
+    if (invInV > 0) { inv.set("A" + ir, "※初期投資額は前提条件で入力した金額（税込）を使っています。上の内訳は目安で、借入の内訳は内訳の割合で分けています。", ST.note); inv.merges.push(`A${ir}:H${ir}`); ir++; }
     inv.set("A" + ir, "物件の状態（既存の給排水・ガス・電気容量）により工事費は増減します。土地・建物の取得費、保証金、開業前の家賃は含みません。数量0の項目は今回の計画では不要なものです。", ST.note);
     inv.merges.push(`A${ir}:H${ir}`); inv.heights[ir] = 30;
     inv.landscape = false; inv.fitH = 1;
@@ -323,7 +330,7 @@
     const y3 = Y[2], fixM = (y3.rnt + y3.l1 + y3.l2 + y3.f) / 12, be = fixM / (1 - runPct), beP = sales ? be * 1e4 / sales : 0;
     const lowI = SEASON.indexOf(Math.min(...SEASON)), low = sales * SEASON[lowI], lowProf = (low / 1e4) * (1 - runPct) - fixM;
     RI.set("A13", "赤字にならない月の売上（3年目）", ST.labelB).set("B13", Math.round(be), ST.manB, `SUM('10年収支計画'!D10:D13)/12/(1-${p("run")})`);
-    RI.set("C13", `予測の${Math.round(beP * 100)}%`, ST.cell, `"予測の"&TEXT(B13*10000/${p("sales")},"0%")`); RI.merges.push("C13:D13");
+    RI.set("C13", `予測の${sales ? Math.round(Math.round(be) * 1e6 / sales) : 0}%`, ST.cell, `"予測の"&TEXT(ROUND(B13,0)*10000/${p("sales")},"0%")`); RI.merges.push("C13:D13");
     RI.set("A14", `いちばん少ない月（${lowI + 1}月）の手残り`, ST.labelB).set("B14", Math.round(lowProf), ST.manB, `${p("sales")}*MIN(${seasRef(0)}:${seasRef(11)})/10000*(1-${p("run")})-SUM('10年収支計画'!D10:D13)/12`);
     RI.set("C14", `月の売上 ${man(low)}万円の見込み`, ST.cell, `"月の売上 "&TEXT(${p("sales")}*MIN(${seasRef(0)}:${seasRef(11)})/10000,"#,##0")&"万円の見込み"`); RI.merges.push("C14:D14");
     RI.set("A15", "試算は10年収支計画と同じ前提（借入・家賃・ランニングコスト率）で、売上や費用だけを変えています。", ST.note); RI.merges.push("A15:D15");
