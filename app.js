@@ -874,9 +874,10 @@
     const list = (t, txt) => { const it = String(txt || "").split("。").map((x) => x.trim()).filter(Boolean); return it.length ? `<h2>${t}</h2><ul class="pv-list">${it.map((x) => `<li>${h(x)}</li>`).join("")}</ul>` : ""; };
     const areas = d.areaRows.filter((r) => r.sum).map((r) => `<li><span>${h(r.label)}</span><b>${fmt(r.hh)}<small>世帯</small></b><em>人口 ${fmt(r.pop)}人</em></li>`).join("");
     const ok = Y[2].prof > 0;
+    const photos = (d.photos || []).map((x) => ({ src: URL.createObjectURL(new Blob([x.data], { type: "image/jpeg" })), label: x.label, attr: x.attr || "" }));
     const box = document.createElement("div"); box.id = "planView"; box.className = "pv";
     box.innerHTML = `
-      <div class="pv-bar"><button type="button" class="btn ghost" data-a="close">閉じる</button><button type="button" class="btn" data-a="pdf">PDFで保存</button></div>
+      <div class="pv-bar"><button type="button" class="btn ghost" data-a="close">閉じる</button><button type="button" class="btn" data-a="pdf" disabled>PDFを準備中…</button></div>
       <article class="pv-doc">
         <header class="pv-hero"><p class="pv-eye">BUSINESS PLAN</p><h1>事業計画書</h1><p class="pv-name">${h(A.name)}</p>
           <p class="pv-sub">${h(d.address)}${A.open ? "　開業予定 " + h(A.open) : ""}${planIn.client ? "<br>" + h(planIn.client) + "　御中" : ""}</p></header>
@@ -898,7 +899,7 @@
         <table class="pv-tbl"><thead><tr><th></th><th>3年目の月の手残り</th><th>10年累計</th></tr></thead><tbody>
           ${c.scen.map((x) => `<tr><th>${h(x.name)}</th><td class="${x.m3p < 0 ? "neg" : ""}">${m4(x.m3p)}</td><td class="${x.cum < 0 ? "neg" : ""}">${m4(x.cum)}</td></tr>`).join("")}
         </tbody></table>
-        ${(d.photos || []).length ? `<h2>計画地の様子</h2><div class="pv-photos">${d.photos.map((x) => `<figure><img src="${URL.createObjectURL(new Blob([x.data], { type: "image/jpeg" }))}" alt="${h(x.label)}"><figcaption>${h(x.label)}<small>${h(x.attr || "")}</small></figcaption></figure>`).join("")}</div>` : ""}
+        ${photos.length ? `<h2>計画地の様子</h2><div class="pv-photos">${photos.map((x) => `<figure><img src="${x.src}" alt="${h(x.label)}"><figcaption>${h(x.label)}<small>${h(x.attr)}</small></figcaption></figure>`).join("")}</div>` : ""}
         <h2>立地スコア<small>100点満点</small></h2>
         <div class="pv-score"><b>${c.scoreSum}<small>点</small></b><ul>${c.catTot.map((x) => `<li><span>${h(x.name)}</span><i style="--w:${Math.max(0, Math.min(100, x.v / 30 * 100))}%"></i><em>${x.v}</em></li>`).join("")}</ul></div>
         <h2>商圏</h2><ul class="pv-area">${areas}</ul>
@@ -912,10 +913,47 @@
     document.getElementById("planView")?.remove();
     document.body.appendChild(box); document.body.classList.add("pv-open");
     const y0 = window.scrollY; box.scrollTop = 0;
-    box.addEventListener("click", (ev) => {
+    // PDFは開いたときに先に作っておく（ボタンを押してすぐ共有シートを出すため。ホーム画面のアプリでは印刷が開かない）
+    const sp = (t) => String(t || "").split("。").map((x) => x.trim()).filter(Boolean);
+    const tr = (label, k, strong) => ({ cells: [label, ...show.map((i) => m4(Y[i][k]))], strong, neg: [false, ...show.map((i) => Y[i][k] < 0)] });
+    const blocks = [
+      { t: "hero", eye: "BUSINESS PLAN", title: "事業計画書", name: A.name, sub: [d.address + (A.open ? "　開業予定 " + A.open : ""), ...(planIn.client ? [planIn.client + "　御中"] : [])] },
+      { t: "kpi", items: [
+        { label: "予測月商（開業3年目）", value: mn(c.sales), unit: "万円", note: `${d.est.mark} ${d.est.markText}（${d.est.bandText}）` },
+        { label: "初期投資（税込）", value: mn(c.invT), unit: "万円", note: "機械・工事・内装の合計" },
+        { label: "1日の利用見込み", value: String(Math.round(c.sales / A.price / 30)), unit: "回", note: `1回${fmt(A.price)}円換算` },
+        { label: "累計黒字化", value: c.payback ? String(c.payback) : "—", unit: c.payback ? "年目" : "", note: "返済・家賃を差し引き後" },
+        { label: "10年間の累計手残り", value: m4(c.cum10), unit: "万円", note: "借入10年返済で試算" }] },
+      { t: "judge", ok, text: ok ? "3年目は月" + m4(Y[2].prof / 12) + "万円の手残りが見込めます" : "3年目も手残りがマイナスです", sub: `赤字にならない月の売上は${m4(c.be)}万円（予測の${Math.round(c.be * 1e4 / c.sales * 100)}%）です` },
+      { t: "h2", text: "収支計画", small: "単位：万円", keep: 560 },
+      { t: "table", head: ["", "初年度", "2年目", "3年目", "5年目", "10年目"], widths: [0.3, 0.14, 0.14, 0.14, 0.14, 0.14], lastAccent: true,
+        rows: [tr("売上", "rev", true), tr("ランニングコスト", "cost"), tr("家賃", "rnt"), tr("借入返済（機械・工事）", "l1"), tr("借入返済（内装・電気）", "l2"), tr("スマラン他", "f"), tr("手残り", "prof", true), tr("手残りの累計", "cum", true)] },
+      { t: "note", text: `売上は${A.salesNote}を使っています。初年度80%、2年目92%、3年目100%、4年目109%、5年目以降111%（当社直営店の平均的な立ち上がり）。初期投資の全額を借り入れると仮定しています。` },
+      { t: "h2", text: "もしもの試算", small: "単位：万円", keep: 120 + c.scen.length * 50 },
+      { t: "table", head: ["", "3年目の月の手残り", "10年累計"], widths: [0.5, 0.25, 0.25], rows: c.scen.map((x) => ({ cells: [x.name, m4(x.m3p), m4(x.cum)], neg: [false, x.m3p < 0, x.cum < 0] })) },
+      ...(photos.length ? [{ t: "h2", text: "計画地の様子", keep: 480 }, { t: "photos", items: photos }] : []),
+      { t: "h2", text: "立地スコア", small: "100点満点", keep: 120 + c.catTot.length * 40 },
+      { t: "score", total: String(c.scoreSum), items: c.catTot.map((x) => ({ name: x.name, v: String(x.v), w: Math.max(0, Math.min(1, x.v / 30)) })) },
+      { t: "h2", text: "商圏", keep: 300 },
+      { t: "cards", items: d.areaRows.filter((r) => r.sum).map((r) => ({ label: r.label, value: fmt(r.hh), unit: "世帯", sub: `人口 ${fmt(r.pop)}人` })) },
+      { t: "note", text: d.zone ? "用途地域：" + d.zone : "" }, { t: "note", text: d.compText || "" },
+      { t: "h2", text: "初期投資と借入", keep: 340 },
+      { t: "dl", items: [["初期投資（税込）", mn(c.invT) + "万円"], ["月々の返済", mn(c.pay1 + c.pay2) + "万円（10年・年3%）"], ["家賃（月）", mn(A.rent) + "万円"], ["機械構成", `洗濯乾燥機${c.counts.wd}台・乾燥機${c.counts.dr}台・洗濯機${c.counts.wa}台`], ["競合への強さ", `${c.defLv}（約${c.tsubo.toFixed(1)}坪）`]] },
+      ...(sp(d.strengths).length ? [{ t: "h2", text: "強み", keep: 140 }, { t: "list", items: sp(d.strengths) }] : []),
+      ...(sp(d.risks).length ? [{ t: "h2", text: "リスクと対策", keep: 140 }, { t: "list", items: sp(d.risks) }] : []),
+      { t: "foot", text: `ランドリーオープンナビ　｜　売上の見込みはランドリープレスの売上実績をもとに算出　｜　人口・世帯数は令和2年国勢調査　｜　作成日 ${d.created || ""}` },
+    ];
+    const pdfName = `事業計画書_${A.name}.pdf`.replace(/[\\/:*?"<>|]/g, "_");
+    const pdfBtn = box.querySelector('[data-a="pdf"]');
+    const pdfP = (window.OpenNaviPdf ? Promise.resolve() : loadScript("pvpdf.js?v=1")).then(() => window.OpenNaviPdf.make(blocks, { footer: A.name }));
+    pdfP.then(() => { pdfBtn.disabled = false; pdfBtn.textContent = "PDFで保存"; }, (e) => { console.error(e); pdfBtn.disabled = false; pdfBtn.textContent = "PDFで保存"; });
+    box.addEventListener("click", async (ev) => {
       const a = ev.target.closest("[data-a]")?.dataset.a;
       if (a === "close") { box.remove(); document.body.classList.remove("pv-open"); window.scrollTo(0, y0); }
-      if (a === "pdf") window.print();
+      if (a === "pdf") {
+        let blob = null; try { blob = await pdfP; } catch (e) { blob = null; }
+        if (blob) await window.OpenNaviPdf.save(blob, pdfName); else window.print();
+      }
     });
   }
   renderPlanForm();
