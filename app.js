@@ -117,7 +117,10 @@
     if (roadNG) band = Math.min(band, 3);
     const grade = gradeOf(band);
     const [lo, hi] = BANDS[band];
-    return { cond, base, pt, roadNG, grade, band, band0, lo, hi, sales: lo,
+    // 事業計画書に使う細かい数字: 金額帯の下限に、段階に届かなかった点数の端数を足し引きする（1点＝5万円）
+    const rem = pt - STEP_PT * Math.trunc(pt / STEP_PT), capped = roadNG && band0 + Math.trunc(pt / STEP_PT) > 3;
+    const fine = lo ? Math.max(100000, capped ? lo : lo + rem * (200000 / STEP_PT)) : hi;
+    return { cond, base, pt, roadNG, grade, band, band0, lo, hi, sales: lo, fine, rem: capped ? 0 : rem,
       dayLo: lo / P.price / 30, dayHi: hi ? hi / P.price / 30 : null };
   }
   // 月の売上の金額帯（円）。◎=120万円以上、○=100〜120万円、△=100万円未満
@@ -719,7 +722,7 @@
     return D.map((c, ci) => ({ name: c.name, items: c.items.map((it, ii) => ({ ...it, on: !!(on[ci] && on[ci][ii]) })) })); };
   async function renderScore() {
     const box = $("#scoreBody"); if (!box) return;
-    if (!window.OpenNaviKeikaku) { try { if (!window.OpenNaviPlan) await loadScript("plan.js?v=7"); await loadScript("keikaku.js?v=3"); } catch (e) { return; } }
+    if (!window.OpenNaviKeikaku) { try { if (!window.OpenNaviPlan) await loadScript("plan.js?v=7"); await loadScript("keikaku.js?v=4"); } catch (e) { return; } }
     const data = scoreData(); if (!data) return;
     if (!SC) SC = data.map((c) => c.items.map((it) => it.on));
     box.textContent = "";
@@ -743,7 +746,7 @@
       });
       box.appendChild(det);
     });
-    $("#scoreTotal").textContent = total + "点";
+    $("#scoreTotal").textContent = Math.min(100, Math.max(0, Math.round(50 + total / 2))) + "点";
   }
   // 計画地の写真（Googleストリートビュー）: 外観（計画地の方向）と前面の通り（道路に沿った方向）
   const brg = (y1, x1, y2, x2) => { const p1 = y1 * Math.PI / 180, p2 = y2 * Math.PI / 180, dl = (x2 - x1) * Math.PI / 180;
@@ -777,7 +780,7 @@
     const live = cur.comps.filter((c) => !c.closed);
     const n = (km) => live.filter((c) => c.km <= km).length;
     const single = k1.single / Math.max(1, k1.hh);
-    const sales = e.lo || e.hi;
+    const sales = e.fine;
     const spec = SPEC_DEF.map((d) => ({ label: d.label, choice: d.opts[S[d.k]][0], pt: specPt(d) }));
     if (S.road === 1) for (const [k, t] of ROAD_OK) spec.push({ label: "幹線道路の必須条件: " + t, choice: S[k] ? "はい" : "いいえ", pt: 0 });
     const cond = e.cond.map((c) => ({ label: c.label, value: c.value,
@@ -822,7 +825,7 @@
       est: { mark: g, markText: gl, bandText: "月" + bandTxt(e.band), baseText: e.roadNG ? "幹線道路の必須条件がそろっていないため約80万円まで" : bandTxt(e.band0), ptText: `基準から${signed(e.pt)}点`, cond },
       spec, checks: checkList(), target, areaText, compText, strengths: st.join("。") + "。", risks: rk.join("。") + "。",
       inputs: { name: planIn.name || defaultName(), open: planIn.open, price: P.price, sales,
-        salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）` : "売上予測の上限",
+        salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）${e.rem ? `に、お店の条件の端数${signed(e.rem)}点（1点＝5万円）を${e.rem > 0 ? "足した" : "引いた"}数字` : ""}` : "売上予測の上限",
         varRate: 0.3, clean: 50000, rent: planIn.rent, other: 50000, invest: planIn.invest, own: Math.min(planIn.own, planIn.invest), rate: 0.02, years: 10, dep: 10 },
     };
   }
@@ -834,7 +837,7 @@
     try {
       if (!window.JSZip) await loadScript("vendor/jszip/jszip.min.js");
       if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=4");
       const d = planData();
       d.photos = await photosFor();
       const blob = await window.OpenNaviKeikaku.makeKeikaku(d);
@@ -858,7 +861,7 @@
     document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
     try {
       if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=4");
       const d = planData(), A = d.inputs, K = d.keikaku, [r1] = radii();
       const ph = await photosFor();
       const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
@@ -886,7 +889,7 @@
     document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
     try {
       if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
-      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=4");
       const d = planData(); d.photos = await photosFor();
       showPlanView(d);
     } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }

@@ -30,6 +30,7 @@
   ];
   const DEF = { elec: 2500000, interior: 6000000, disc: 0, rent: 250000, fixed: 36000, c_el: 0.10, c_gas: 0.09, c_wat: 0.05, c_det: 0.03,
     loan_r: 0.03, loan_y: 10, loan_y2: 10, dz: [0, 0.05, 0.10, 0.15, 0.20], comp_y: 5, area: 85.8, park: 5, fmt: "路面店（単独の建物）" };
+  const toScore100 = (raw) => Math.min(100, Math.max(0, Math.round(50 + raw / 2)));
   // 立地スコア（出店計画書の採点表。グループ内はどれか1つ）
   const SCORE = [{"name": "【1】店舗の形状", "items": [{"t": "40坪以上の大型店", "p": 10, "group": "a"}, {"t": "30〜40坪未満", "p": 8, "group": "a"}, {"t": "25〜30坪未満", "p": 6, "group": "a", "def": 1}, {"t": "20〜25坪未満", "p": 4, "group": "a"}, {"t": "15〜20坪未満", "p": 2, "group": "a"}, {"t": "15坪未満", "p": 1, "group": "a"}, {"t": "間口幅10m以上", "p": 6, "group": "b"}, {"t": "間口幅8m以上", "p": 4, "group": "b"}, {"t": "間口幅5〜8m", "p": 2, "group": "b", "def": 1}, {"t": "間口幅5m以内", "p": 1, "group": "b"}, {"t": "正面ガラス面70%以上", "p": 6, "group": "c", "def": 1}, {"t": "正面ガラス面50〜70%", "p": 4, "group": "c"}, {"t": "正面ガラス面30〜50%", "p": 2, "group": "c"}, {"t": "3方向から視認できる", "p": 5, "group": "d"}, {"t": "2方向から視認できる", "p": 4, "group": "d"}, {"t": "正面から見えやすい", "p": 3, "group": "d", "def": 1}, {"t": "大型看板の取付ができる", "p": 4}, {"t": "道路際にポール看板を設置できる", "p": 4}, {"t": "看板視認性不足", "p": -3}, {"t": "西向き店舗", "p": -2}]}, {"name": "【2】道路等立地条件", "items": [{"t": "買い物ルート等の生活道路沿い（中央分離帯なし）", "p": 5, "def": 1, "group": "road"}, {"t": "買い物ルート等の生活道路沿い（中央分離帯あり）", "p": 3, "group": "road"}, {"t": "交通量の多い幹線道路沿い（中央分離帯なし）", "p": 3, "group": "road"}, {"t": "交通量の多い幹線道路沿い（中央分離帯あり）", "p": 2, "group": "road"}, {"t": "生活道路ではない中央線のある道路", "p": 2, "group": "road"}, {"t": "中央線のない狭路（幅8m以下）", "p": 1, "group": "road"}, {"t": "右カーブの左正面に立地", "p": 1}, {"t": "近隣住民しか使わない道路沿い", "p": -3}, {"t": "急な坂にある", "p": -3}, {"t": "車のスピードが速く危険", "p": -3}, {"t": "渋滞が発生する", "p": -3}, {"t": "信号や交差点の近くで入りにくい", "p": -3}, {"t": "左カーブの内側に立地", "p": -3}]}, {"name": "【3】敷地の形状", "items": [{"t": "駐車場8〜10台以上", "p": 12, "group": "a"}, {"t": "駐車場5〜7台", "p": 10, "group": "a", "def": 1}, {"t": "駐車場2〜4台", "p": 8, "group": "a"}, {"t": "駐車場0〜1台", "p": 6, "group": "a"}, {"t": "路上駐車3〜4台可", "p": 4, "group": "a"}, {"t": "路上駐車1〜2台可", "p": 3, "group": "a"}, {"t": "駐車しやすい駐車場", "p": 2}, {"t": "駐車場が建屋に隣接", "p": 2}, {"t": "駐輪場が隣接", "p": 2}, {"t": "駐車場から傘なしで入店できる", "p": 2}, {"t": "駐車場から道路に出て旋回が必要", "p": -4}, {"t": "電柱・信号・段差など障害物あり", "p": -3}, {"t": "他店との兼用駐車場", "p": -2, "def": 1}]}, {"name": "【4】周辺の住宅環境", "items": [{"t": "背後に傾斜住宅地を持つ平坦地", "p": 2}, {"t": "マンション・商業施設混在の都市型", "p": 2}, {"t": "一戸建てとマンションが混在", "p": 1, "def": 1}, {"t": "郊外で一戸建て中心", "p": 1}, {"t": "学生マンション・公団・市営・県営住宅中心", "p": 1}, {"t": "鉄道や川で商圏が分断", "p": -3}, {"t": "商圏内の高い位置に店舗", "p": -2}]}, {"name": "【5】相乗効果を生む施設", "items": [{"t": "生鮮スーパーの敷地内", "p": 4}, {"t": "大型商業施設の敷地内", "p": 3, "def": 1}, {"t": "ホームセンター・大型家電店の敷地内", "p": 3}, {"t": "生鮮スーパーに隣接", "p": 3}, {"t": "大型商業施設に隣接", "p": 2}, {"t": "駅に近い", "p": 1}, {"t": "クリーニング店等と併設", "p": 2}, {"t": "従業員によるサービスあり", "p": 2}, {"t": "夜でも明るい", "p": 1, "def": 1}]}, {"name": "【6】競合店（マイナスのみ）", "items": [{"t": "第1商圏にAクラス競合2店以上", "p": -8}, {"t": "第1商圏にAクラス競合", "p": -6}, {"t": "第1商圏にBクラス競合2店以上", "p": -6}, {"t": "第1商圏にBクラス競合", "p": -4}, {"t": "第1商圏にCクラス競合2店以上", "p": -4}, {"t": "第1商圏にCクラス競合", "p": -3, "def": 1}, {"t": "第2商圏にAクラス競合", "p": -3}, {"t": "第2商圏にBクラス競合", "p": -2}]}];
   const RAMP = [0.80, 0.92, 1.00, 1.09, 1.11, 1.11, 1.11, 1.11, 1.11, 1.11];
@@ -457,14 +458,17 @@
     });
     const scoreSum = catTot.reduce((a, c) => a + c.v, 0);
     SS.set("B" + sr2, "立地スコア（合計）", ST.sumLabel).set("E" + sr2, scoreSum, ST.sumRow, catTot.map((c) => c.ref).join("+"));
-    const scoreRef = `立地スコア!$E$${sr2}`;
-    SS.set("A" + (sr2 + 1), "100点満点の立地評価です（出店計画書の採点表）。売上予測（オープンナビ）には使っていません。", ST.note); SS.merges.push(`A${sr2 + 1}:E${sr2 + 1}`);
+    // 100点満点に直す: 持ち点50点＋各項目の合計の半分（2026-11-12 Yuta「50点以上を最低ラインに」）
+    const scoreRaw = scoreSum, scoreDisp = toScore100(scoreRaw);
+    SS.set("B" + (sr2 + 1), "立地スコア（100点満点＝50点＋合計÷2）", ST.sumLabel).set("E" + (sr2 + 1), scoreDisp, ST.sumRow, `MIN(100,MAX(0,ROUND(50+E${sr2}/2,0)))`);
+    const scoreRef = `立地スコア!$E$${sr2 + 1}`;
+    SS.set("A" + (sr2 + 2), "持ち点50点から始めて、採点表の合計の半分を足し引きした100点満点の立地評価です。売上予測（オープンナビ）には使っていません。", ST.note); SS.merges.push(`A${sr2 + 2}:E${sr2 + 2}`);
     SS.landscape = false; SS.fitH = 0;
     // 計画地の概要に立地スコアのまとめ
     let qr = Math.max(prow, 7) + 1;
     OV.set("D" + qr, "立地スコア", ST.h2); OV.merges.push(`D${qr}:F${qr}`); qr++;
     catTot.forEach((c) => { OV.set("D" + qr, c.name, ST.label).set("E" + qr, c.v, ST.int, c.ref); OV.set("F" + qr, "点", ST.n); qr++; });
-    OV.set("D" + qr, "合計（100点満点）", ST.sumLabel).set("E" + qr, scoreSum, ST.sumRow, scoreRef); OV.set("F" + qr, "点", ST.n); qr += 2;
+    OV.set("D" + qr, "立地スコア（100点満点）", ST.sumLabel).set("E" + qr, scoreDisp, ST.sumRow, scoreRef); OV.set("F" + qr, "点", ST.n); qr += 2;
     // 写真（Googleストリートビュー）
     const photos = (d.photos || []).filter((x) => x && x.data);
     if (photos.length) {
@@ -497,7 +501,7 @@
     pts.forEach((t) => { SU.set("B" + hr, t, ST.inText); SU.merges.push(`B${hr}:E${hr}`); SU.heights[hr] = 30; hr++; });
     SU.set("G6", "計画の概要", ST.h2); SU.merges.push("G6:H6");
     kv.slice(0, 7).forEach(([l, val, f], i) => { SU.set("G" + (7 + i), l, ST.labelB).set("H" + (7 + i), val, ST.cell, f); SU.heights[7 + i] = Math.max(SU.heights[7 + i] || 0, 30); });
-    SU.set("G15", "立地スコア（100点満点）", ST.labelB).set("H15", scoreSum, ST.intB, scoreRef);
+    SU.set("G15", "立地スコア（100点満点）", ST.labelB).set("H15", scoreDisp, ST.intB, scoreRef);
     if (photos.length) { SU.set("G17", "計画地の様子（" + photos[0].label + "）", ST.hdr); SU.images = [{ data: photos[0].data, from: [6, 17], to: [8, 30] }]; hr = Math.max(hr, 31); }
     SU.set("B" + (hr + 1), "本資料の予測は当社の出店実績と公的統計にもとづく推計であり、売上を保証するものではありません。", ST.note); SU.merges.push(`B${hr + 1}:H${hr + 1}`);
 
@@ -518,7 +522,7 @@
     const out = order.map((n) => sheets.find((s) => s.name === n)); out.push(pre);
     // ページ番号（表紙を除いて 01〜10）を並びに合わせて振り直す
     out.slice(1, order.length).forEach((s, i) => { s.set("A2", String(i + 1).padStart(2, "0"), ST.secNo); });
-    out.calc = { scoreSum, catTot, sales, invT, payback, cum10: Y[9].cum, Y, runPct, pay1, pay2, be, defLv, dz: dzV, tsubo: ts, cap, k: kk, scen, months: SEASON.map((s) => sales * s), counts: C };
+    out.calc = { scoreSum: scoreDisp, scoreRaw, catTot, sales, invT, payback, cum10: Y[9].cum, Y, runPct, pay1, pay2, be, defLv, dz: dzV, tsubo: ts, cap, k: kk, scen, months: SEASON.map((s) => sales * s), counts: C };
     return out;
   }
 

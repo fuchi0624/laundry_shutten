@@ -13,10 +13,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@200;500;700;800&display=swap">
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=51">
 <script>
 // 新しい版を公開したら、古い画面が残らないように読み直す（version.txt と見比べる）
-window.APP_VER = "50";
+window.APP_VER = "51";
 fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).then((v) => {
   v = v.trim();
   if (v && v !== window.APP_VER && !sessionStorage.getItem("reloaded" + v)) {
@@ -162,6 +162,6 @@ fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? 
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=50"></script>
+<script src="app.js?v=51"></script>
 </body>
 </html>
