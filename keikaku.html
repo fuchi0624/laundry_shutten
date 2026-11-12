@@ -754,7 +754,7 @@ async function fromApp(){
   LAST={lat,lon,matched:d.matched||d.address,mesh:{},road,osm:osm&&!osm.err?osm:null,osmErr:osm&&osm.err?'周辺施設の地図データを読めませんでした':'',gcomp,gErr:''};
   buildCmp();render();
   if(PHONE.matches){const w=$('wrap');w.classList.add('closed');$('toggle').textContent='入力欄を開く'}
-  status(`完了：${LAST.matched}\n売上はランドリーオープンナビの予測（月${d.band||''}の下限）を使っています。`);
+  status(`完了：${LAST.matched}\n売上はランドリーオープンナビの予測（月${d.band||''}）を使っています。`);
 }
 
 // PDFで保存：各ページを画像にしてA4横のPDFにする（スマホのホーム画面アプリでは印刷が開かないため）
@@ -770,7 +770,7 @@ function whiteOf(src,col='#fff'){
 }
 async function savePdf(){
   const btn=$('savepdf'),name=`事業計画書_${($('name').value||'').replace(/[\\/:*?"<>|]/g,'_')}.pdf`;
-  if(PDFBLOB){const b=PDFBLOB;PDFBLOB=null;btn.textContent='PDFで保存';await shareFile(new File([b],name,{type:'application/pdf'}));return}
+  if(PDFBLOB){pdfReady(name);return}
   if(!LAST){status('先にレポートを作ってください');return}
   btn.disabled=true;
   try{
@@ -781,7 +781,7 @@ async function savePdf(){
     const pages=[...document.querySelectorAll('#report .page')],jpgs=[];
     for(let i=0;i<pages.length;i++){
       btn.textContent=`作成中… ${i+1}/${pages.length}`;
-      const cv=await html2canvas(pages[i],{scale:1.6,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:1400,windowHeight:1000,
+      const cv=await html2canvas(pages[i],{scale:innerWidth<900?1.3:1.6,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:1400,windowHeight:1000,
         onclone:async(doc,el)=>{const st=doc.createElement('style');st.textContent=css+'.topbar,.drawer{display:none!important}.report{gap:0}.cv1 svg.bg,.cv1 .bg{opacity:1!important}';doc.head.appendChild(st);
           await new Promise(r=>setTimeout(r,60));
           // 図（SVG）は大きさを決めておかないと小さく描かれる
@@ -793,9 +793,10 @@ async function savePdf(){
             im.style.cssText=`display:block;width:${r.width}px;height:${r.height}px;max-width:none;opacity:1!important;`+(abs?'position:absolute;left:0;top:0;':'');g.replaceWith(im)});
           // 白抜きのキャラクター（CSSのfilterは画像にならないので、白くした画像に差し替え）
           el.querySelectorAll('img').forEach(im=>{const f=doc.defaultView.getComputedStyle(im).filter||'';if(/brightness\(0\)/.test(f)){const w=whiteOf(im.src,f.includes('invert')?'#fff':'#000');if(w){im.src=w;im.style.filter='none'}}})}});
-      jpgs.push({w:cv.width,h:cv.height,data:await new Promise(ok=>cv.toBlob(async b=>ok(new Uint8Array(await b.arrayBuffer())),'image/jpeg',0.9))});
+      jpgs.push({w:cv.width,h:cv.height,data:await new Promise((ok,ng)=>{try{cv.toBlob(async b=>{if(!b)return ng(new Error('画像にできませんでした（'+(i+1)+'ページ目）'));ok(new Uint8Array(await b.arrayBuffer()))},'image/jpeg',0.88)}catch(e){ng(e)}})});
+      cv.width=cv.height=0; // スマホのメモリを空ける
     }
-    PDFBLOB=pdfOf(jpgs);btn.textContent='できました。押して保存';
+    PDFBLOB=pdfOf(jpgs);btn.textContent='できました。押して保存';pdfReady(name);
   }catch(e){console.error(e);btn.textContent='PDFで保存';status('PDFを作れませんでした：'+e.message)}
   finally{btn.disabled=false}
 }
@@ -814,7 +815,22 @@ function pdfOf(jpgs){
   push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts,{type:'application/pdf'});
 }
-async function shareFile(file){
+// できたPDFを大きなボタンで保存（共有シート）。共有できないときはPDFを開く
+function pdfReady(name){
+  let ov=document.getElementById('pdfov');if(ov)ov.remove();
+  ov=document.createElement('div');ov.id='pdfov';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(15,10,7,.72);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:22px 20px;max-width:340px;width:100%;display:grid;gap:12px;text-align:center;font-family:inherit;color:#2b1e15"><b style="font-size:17px">PDFができました</b><span style="font-size:13px;color:#7f6e61">下のボタンを押して「ファイルに保存」やLINEなどを選んでください</span><button type="button" id="pdfgo" style="font:inherit;font-weight:900;font-size:16px;height:52px;border:0;border-radius:14px;background:#e2621b;color:#fff">PDFを保存する</button><button type="button" id="pdfopen" style="font:inherit;font-size:14px;height:44px;border:1.5px solid #2b1e15;border-radius:12px;background:#fff;color:#2b1e15">PDFを開いて見る</button><button type="button" id="pdfx" style="font:inherit;font-size:13px;border:0;background:none;color:#7f6e61;padding:6px">閉じる</button></div>';
+  document.body.appendChild(ov);
+  const blob=PDFBLOB,file=()=>new File([blob],name,{type:'application/pdf'});
+  ov.querySelector('#pdfgo').onclick=()=>shareFile(file(),true);
+  ov.querySelector('#pdfopen').onclick=()=>openBlob(blob);
+  ov.querySelector('#pdfx').onclick=()=>ov.remove();
+}
+function openBlob(b){const u=URL.createObjectURL(b);const w=window.open(u,'_blank');if(!w)location.href=u}
+async function shareFile(file,openIfNg){
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:file.name});return}catch(e){if(e&&e.name==='AbortError')return}}
+  if(openIfNg){openBlob(file);return}
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:file.name});return}catch(e){if(e&&e.name==='AbortError')return}}
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();a.remove();
 }
