@@ -125,10 +125,10 @@
   const BASE_BAND = [5, 4, 3];   // 商圏だけで見たときの基準（直営店と似た商圏→120〜140万、1つ外れる→100〜120万、それ以外→80〜100万）。マンションが多い地域は＋1段階
   const APT_RATIO = 0.5;
   const STEP_PT = 4;             // お店の条件 4点で1段階
-  const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `${lo / 1e4}〜${hi / 1e4}万円`; };
+  const bandTxt = (b) => { const [lo, hi] = BANDS[b]; return !lo ? `${hi / 1e4}万円未満` : !hi ? `${lo / 1e4}万円以上` : `約${lo / 1e4}万円`; };
   // マーク: ★=120万円以上、◎=100万円以上、○=80万円以上、△=80万円未満（2026-11 Yuta指定）
-  const GRADES = [["★", "月120万円以上が見込めます", "g0"], ["◎", "月100万円以上が見込めます", "g0"], ["○", "月80〜100万円の見込み", "g1"], ["△", "月80万円に届かないおそれ", "g2"]];
-  const SALES_TXT = ["120万円以上", "100万円以上", "80〜100万円", "80万円未満のおそれ"];
+  const GRADES = [["★", "月120万円以上が見込めます", "g0"], ["◎", "月100万円以上が見込めます", "g0"], ["○", "月約80万円の見込み", "g1"], ["△", "月80万円に届かないおそれ", "g2"]];
+  const SALES_TXT = ["120万円以上", "100万円以上", "約80万円", "80万円未満のおそれ"];
   const gradeOf = (band) => (band >= 5 ? 0 : band === 4 ? 1 : band === 3 ? 2 : 3);
 
   // ---------------------------------------------------------------- お店の条件（点数）
@@ -155,7 +155,7 @@
   const ROAD_OK = [["median", "中央分離帯がない"], ["inout", "反対車線から入りやすく、出やすい"], ["seeOpp", "反対車線から見えやすい"]];
   const SPEC0 = { ...Object.fromEntries(SPEC_DEF.map((d) => [d.k, d.base])), inout: false, seeOpp: false, median: false, parkEase: false };
   let S = { ...SPEC0, ...(store.get("spec5") || {}) };
-  // 幹線道路沿いは3つの条件が必須（そろわなければ80〜100万円まで）
+  // 幹線道路沿いは3つの条件が必須（そろわなければ約80万円まで）
   const roadOK = () => ROAD_OK.every(([k]) => S[k]);
   // 500m以内に7,000世帯以上ある街中では、歩き・自転車のお客さんが多いため駐車場が少なくても減点しない（直営店の実績より）
   const CITY_HH = 7000;
@@ -476,8 +476,8 @@
     box.className = "card verdict " + cls;
     box.innerHTML = `<div class="v-head"><b class="v-ic">${g}</b><div><span>判定</span><strong>${gl}</strong></div></div>
       <div class="v-nums">
-        <div class="v-sales"><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `基準（お店の条件 ±0点） ${bandTxt(e.band0)}`}</small></div>
-        <div class="v-day"><span class="label">来店客数の見込み</span><span class="value">${!e.lo ? "〜" + fmt(e.dayHi) : fmt(e.dayLo) + (e.dayHi ? "〜" + fmt(e.dayHi) : "")}</span><span class="unit">人／日${e.dayHi ? "" : "以上"}</span><small>1日あたり（3年目）</small></div>
+        <div class="v-sales"><span class="label">月の売上の見込み</span><span class="value">${e.lo && e.hi ? "<i>約</i>" : ""}${!e.lo ? e.hi / 1e4 : e.lo / 1e4}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `基準（お店の条件 ±0点） ${bandTxt(e.band0)}`}</small></div>
+        <div class="v-day"><span class="label">来店客数の見込み</span><span class="value">${e.lo && e.dayHi ? "<i>約</i>" : ""}${!e.lo ? fmt(e.dayHi) : fmt(e.dayLo)}</span><span class="unit">人／日${!e.lo ? "未満" : e.dayHi ? "" : "以上"}</span><small>1日あたり（3年目）</small></div>
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
       <div class="v-why-box"><h3 class="v-h">判定の理由</h3><ul class="v-cond"></ul></div>
@@ -579,7 +579,7 @@
       body.appendChild(row);
       if (d.k === "road" && S.road === 1) {
         const sub = document.createElement("div"); sub.className = "spec-sub";
-        sub.innerHTML = `<p>幹線道路沿いは次の3つが必須です。1つでも欠けると売上の見込みは80〜100万円までになります</p>`;
+        sub.innerHTML = `<p>幹線道路沿いは次の3つが必須です。1つでも欠けると売上の見込みは約80万円までになります</p>`;
         sub.classList.toggle("ng", !roadOK());
         for (const [k, t] of ROAD_OK) {
           const l = document.createElement("label");
@@ -819,10 +819,10 @@
       comps: cur.comps.map((c) => ({ name: c.name + (c.closed ? "（臨時休業中）" : ""), km: c.km, address: c.address || "",
         ring: c.km <= r1 ? "第1商圏" : c.km <= r2 ? "第2商圏" : "商圏外" })),
       compSrc: USE_GOOGLE ? "Google マップ" : "OpenStreetMap",
-      est: { mark: g, markText: gl, bandText: "月" + bandTxt(e.band), baseText: e.roadNG ? "幹線道路の必須条件がそろっていないため80〜100万円まで" : bandTxt(e.band0), ptText: `基準から${signed(e.pt)}点`, cond },
+      est: { mark: g, markText: gl, bandText: "月" + bandTxt(e.band), baseText: e.roadNG ? "幹線道路の必須条件がそろっていないため約80万円まで" : bandTxt(e.band0), ptText: `基準から${signed(e.pt)}点`, cond },
       spec, checks: checkList(), target, areaText, compText, strengths: st.join("。") + "。", risks: rk.join("。") + "。",
       inputs: { name: planIn.name || defaultName(), open: planIn.open, price: P.price, sales,
-        salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）の下限＝固めの数字` : "売上予測の上限",
+        salesNote: e.lo ? `売上予測（${bandTxt(e.band)}）` : "売上予測の上限",
         varRate: 0.3, clean: 50000, rent: planIn.rent, other: 50000, invest: planIn.invest, own: Math.min(planIn.own, planIn.invest), rate: 0.02, years: 10, dep: 10 },
     };
   }

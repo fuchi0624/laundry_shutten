@@ -595,3 +595,5 @@ body.pv-open{overflow:hidden}
 .v-head strong{font-size:clamp(1rem,4.6vw,1.18rem)}
 .v-nums .value{font-size:clamp(1.3rem,6.6vw,2rem)}
 .v-nums>div{padding:12px}
+.v-nums .value i{font-style:normal;font-family:var(--f-body);font-size:.5em;font-weight:700;margin-right:2px;letter-spacing:0}
+.v-nums .value{font-size:clamp(1.7rem,9vw,2.4rem)}
