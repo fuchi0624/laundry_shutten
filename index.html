@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="style.css?v=32">
 <script>
 // 新しい版を公開したら、古い画面が残らないように読み直す（version.txt と見比べる）
-window.APP_VER = "44";
+window.APP_VER = "45";
 fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).then((v) => {
   v = v.trim();
   if (v && v !== window.APP_VER && !sessionStorage.getItem("reloaded" + v)) {
@@ -162,6 +162,6 @@ fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? 
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=44"></script>
+<script src="app.js?v=45"></script>
 </body>
 </html>

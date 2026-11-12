@@ -24,6 +24,7 @@ html,body{margin:0;background:var(--desk);color:var(--ink);font:13px/1.7 var(--f
 .topbar b{font:600 13px var(--f-en);letter-spacing:.32em}
 .topbar span{color:#93a9b9;font-size:12px}
 .topbar .sp{flex:1}
+@media screen and (max-width:700px){.topbar{flex-wrap:wrap;row-gap:6px}.topbar>b,.topbar #print,.topbar .sp{display:none!important}}
 @media screen and (max-width:700px){.topbar{gap:8px;padding:8px 12px}.topbar b{font-size:11px;letter-spacing:.2em}.topbar span:not(.sp){display:none}.topbar .btn{white-space:nowrap;padding:7px 10px;font-size:12px}}
 .btn{cursor:pointer;border:0;border-radius:3px;padding:8px 14px;font:700 12.5px var(--f-body)}
 .btn.light{background:#fff;color:var(--char)} .btn.aqua{background:var(--brand);color:#fff} .btn.line{background:transparent;color:#fff;border:1px solid #4d6578}
@@ -390,7 +391,8 @@ table.t.mon tr.rev td{font-weight:700}
   <b>LAUNDRY PRESS</b><span>事業計画書</span><span class="sp"></span>
   <a class="btn line" id="back" href="./" style="text-decoration:none">← アプリに戻る</a>
   <button class="btn line" id="toggle">入力欄を閉じる</button>
-  <button class="btn light" id="savehtml">HTMLで保存</button>
+  <button class="btn light" id="savepdf">PDFで保存</button>
+  <button class="btn line" id="savehtml">HTMLで保存</button>
   <button class="btn light" id="print">印刷・PDF保存</button>
 </div>
 <div class="wrap" id="wrap">
@@ -753,6 +755,68 @@ async function fromApp(){
   buildCmp();render();
   if(PHONE.matches){const w=$('wrap');w.classList.add('closed');$('toggle').textContent='入力欄を開く'}
   status(`完了：${LAST.matched}\n売上はランドリーオープンナビの予測（月${d.band||''}の下限）を使っています。`);
+}
+
+// PDFで保存：各ページを画像にしてA4横のPDFにする（スマホのホーム画面アプリでは印刷が開かないため）
+// 1回目のタップで作り、できたら2回目のタップで共有シートを出す（iPhoneは時間がたつと共有できないため）
+let PDFBLOB=null;
+const WHITE={};
+function whiteOf(src,col='#fff'){
+  const key=col+src;if(WHITE[key]!==undefined)return WHITE[key];
+  const im=[...document.images].find(x=>x.src===src&&x.complete&&x.naturalWidth);if(!im)return WHITE[key]=null;
+  const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const g=c.getContext('2d');
+  g.drawImage(im,0,0);g.globalCompositeOperation='source-in';g.fillStyle=col;g.fillRect(0,0,c.width,c.height);
+  try{return WHITE[key]=c.toDataURL('image/png')}catch(e){return WHITE[key]=null}
+}
+async function savePdf(){
+  const btn=$('savepdf'),name=`事業計画書_${($('name').value||'').replace(/[\\/:*?"<>|]/g,'_')}.pdf`;
+  if(PDFBLOB){const b=PDFBLOB;PDFBLOB=null;btn.textContent='PDFで保存';await shareFile(new File([b],name,{type:'application/pdf'}));return}
+  if(!LAST){status('先にレポートを作ってください');return}
+  btn.disabled=true;
+  try{
+    if(!window.html2canvas)await new Promise((ok,ng)=>{const t=document.createElement('script');t.src='vendor/html2canvas/html2canvas.min.js';t.onload=ok;t.onerror=ng;document.head.appendChild(t)});
+    try{await document.fonts.ready}catch(e){}
+    // 印刷用のレイアウト（@media print の中身）をそのまま画面用として使う
+    let css='';for(const sh of document.styleSheets){let rules;try{rules=sh.cssRules}catch(e){continue}for(const r of rules)if(r.media&&[...r.media].includes('print'))for(const x of r.cssRules)if(!x.cssText.startsWith('@page'))css+=x.cssText+'\n'}
+    const pages=[...document.querySelectorAll('#report .page')],jpgs=[];
+    for(let i=0;i<pages.length;i++){
+      btn.textContent=`作成中… ${i+1}/${pages.length}`;
+      const cv=await html2canvas(pages[i],{scale:1.6,useCORS:true,backgroundColor:'#ffffff',logging:false,windowWidth:1400,windowHeight:1000,
+        onclone:async(doc,el)=>{const st=doc.createElement('style');st.textContent=css+'.topbar,.drawer{display:none!important}.report{gap:0}.cv1 svg.bg,.cv1 .bg{opacity:1!important}';doc.head.appendChild(st);
+          await new Promise(r=>setTimeout(r,60));
+          // 図（SVG）は大きさを決めておかないと小さく描かれる
+          el.querySelectorAll('svg').forEach(g=>{if(g.closest('.leaflet-container'))return;const cs=doc.defaultView.getComputedStyle(g),vb=(g.getAttribute('viewBox')||'').split(/[\s,]+/).map(Number),abs=cs.position==='absolute';
+            const pr=(abs?g.offsetParent||g.parentElement:g.parentElement).getBoundingClientRect(),pw=pr.width-(abs?0:(parseFloat(cs.marginLeft)||0)+(parseFloat(cs.marginRight)||0));
+            const r=abs?{width:pr.width,height:pr.height}:{width:pw,height:vb.length===4&&vb[2]?pw*vb[3]/vb[2]:g.getBoundingClientRect().height};if(!r.width||!r.height)return;
+            const c=g.cloneNode(true);[c,...c.querySelectorAll('*')].forEach(x=>{if(x.getAttribute('style')&&/opacity/.test(x.getAttribute('style')))x.style.opacity=''});c.setAttribute('xmlns','http://www.w3.org/2000/svg');c.setAttribute('width',r.width);c.setAttribute('height',r.height);
+            const im=doc.createElement('img');im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(c));
+            im.style.cssText=`display:block;width:${r.width}px;height:${r.height}px;max-width:none;opacity:1!important;`+(abs?'position:absolute;left:0;top:0;':'');g.replaceWith(im)});
+          // 白抜きのキャラクター（CSSのfilterは画像にならないので、白くした画像に差し替え）
+          el.querySelectorAll('img').forEach(im=>{const f=doc.defaultView.getComputedStyle(im).filter||'';if(/brightness\(0\)/.test(f)){const w=whiteOf(im.src,f.includes('invert')?'#fff':'#000');if(w){im.src=w;im.style.filter='none'}}})}});
+      jpgs.push({w:cv.width,h:cv.height,data:await new Promise(ok=>cv.toBlob(async b=>ok(new Uint8Array(await b.arrayBuffer())),'image/jpeg',0.9))});
+    }
+    PDFBLOB=pdfOf(jpgs);btn.textContent='できました。押して保存';
+  }catch(e){console.error(e);btn.textContent='PDFで保存';status('PDFを作れませんでした：'+e.message)}
+  finally{btn.disabled=false}
+}
+function pdfOf(jpgs){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0;
+  const push=x=>{const b=typeof x==='string'?enc.encode(x):x;parts.push(b);len+=b.length};
+  const obj=(n,body)=>{offs[n]=len;push(`${n} 0 obj\n`);body.forEach(push);push('\nendobj\n')};
+  push('%PDF-1.4\n');const n=jpgs.length,PW=841.89,PH=595.28;
+  obj(1,['<< /Type /Catalog /Pages 2 0 R >>']);
+  obj(2,[`<< /Type /Pages /Kids [${jpgs.map((_,i)=>`${3+i*3} 0 R`).join(' ')}] /Count ${n} >>`]);
+  jpgs.forEach((j,i)=>{const p=3+i*3,s=Math.min(PW/j.w,PH/j.h),w=j.w*s,h=j.h*s,cs=`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${((PW-w)/2).toFixed(2)} ${((PH-h)/2).toFixed(2)} cm /Im0 Do Q`;
+    obj(p,[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p+2} 0 R >> >> /Contents ${p+1} 0 R >>`]);
+    obj(p+1,[`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`]);
+    obj(p+2,[`<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.data.length} >>\nstream\n`,j.data,'\nendstream'])});
+  const total=3+n*3,xref=len;push(`xref\n0 ${total}\n0000000000 65535 f \n`);for(let i=1;i<total;i++)push(String(offs[i]).padStart(10,'0')+' 00000 n \n');
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts,{type:'application/pdf'});
+}
+async function shareFile(file){
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:file.name});return}catch(e){if(e&&e.name==='AbortError')return}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();a.remove();
 }
 // 今の画面を1つのHTMLファイルにして保存（スマホは共有シートから「ファイルに保存」）
 async function saveHtml(){
@@ -1284,6 +1348,8 @@ document.querySelectorAll('.drawer input[type=number]').forEach(i=>i.setAttribut
 if(PHONE.matches)phoneDrawer();
 $('go').addEventListener('click',run);
 $('savehtml').addEventListener('click',saveHtml);
+$('savepdf').addEventListener('click',savePdf);
+document.querySelector('.drawer').addEventListener('change',()=>{if(PDFBLOB){PDFBLOB=null;$('savepdf').textContent='PDFで保存'}});
 try{const k=window.APP_CONFIG&&APP_CONFIG.googleApiKey;if(k&&!$('gkey').value.trim())$('gkey').value=k}catch(e){}
 if(APPD)fromApp();
 $('print').addEventListener('click',()=>window.print());
