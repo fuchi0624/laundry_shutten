@@ -851,6 +851,34 @@
       console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。";
     } finally { btn.disabled = false; }
   });
+  // 事業計画書（HTML）：Yutaさんの出店計画書のデザイン（keikaku.html）に、この画面のデータを渡して開く
+  $("#planHtmlBtn").addEventListener("click", async () => {
+    if (!cur) return;
+    const msg = $("#planMsg"); msg.textContent = "事業計画書を準備しています…";
+    document.querySelectorAll("#planFields input").forEach((i) => i.dispatchEvent(new Event("change")));
+    try {
+      if (!window.OpenNaviPlan) await loadScript("plan.js?v=7");
+      if (!window.OpenNaviKeikaku) await loadScript("keikaku.js?v=3");
+      const d = planData(), A = d.inputs, K = d.keikaku, [r1] = radii();
+      const ph = await photosFor();
+      const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+      const step = 0.1, prof = [];
+      for (let i = 0; i <= 35; i++) { const w = sumWithin(i * step); prof.push([w.pop, w.hh, w.single, w.kids, w.senior].map((v) => Math.round(v * 10) / 10)); }
+      const comps = cur.comps.filter((c) => !c.closed && c.km <= 3.2).map((c) => {
+        let photo = null; try { if (c.photo) photo = { uri: c.photo.src(), attr: c.photo.by || "" }; } catch (e) { /* 写真なし */ }
+        return { name: c.name, lat: c.lat, lon: c.lon, km: c.km, address: c.address || "", photo };
+      });
+      const payload = {
+        v: 1, name: A.name, address: d.address, matched: d.matched, lat: d.lat, lon: d.lon, client: K.client, area: K.area, park: K.park,
+        rent: A.rent, price: A.price, sales: A.sales, salesNote: A.salesNote, invest: K.invest, atype: r1 <= 0.5 ? "urban" : r1 >= 1.5 ? "rural" : "suburb",
+        band: d.est.bandText.replace(/^月/, ""), mark: d.est.mark, markText: d.est.markText, ptText: d.est.ptText, cond: d.est.cond, spec: d.spec,
+        score: d.score, step, prof, comps,
+        photos: (ph || []).map((x, i) => ({ k: i === 0 ? "ext" : "road", src: "data:image/jpeg;base64," + b64(x.data), attr: x.attr || "" })),
+      };
+      localStorage.setItem("opennavi.plan", JSON.stringify(payload));
+      location.href = "keikaku.html?v=" + (window.APP_VER || "");
+    } catch (err) { console.error(err); msg.textContent = "うまく作れませんでした。もう一度お試しください。"; }
+  });
   // スマホで見る事業計画書（その場で画面に出す。PDFは印刷から保存）
   $("#planViewBtn").addEventListener("click", async () => {
     if (!cur) return;

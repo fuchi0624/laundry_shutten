@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="style.css?v=32">
 <script>
 // 新しい版を公開したら、古い画面が残らないように読み直す（version.txt と見比べる）
-window.APP_VER = "43";
+window.APP_VER = "44";
 fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).then((v) => {
   v = v.trim();
   if (v && v !== window.APP_VER && !sessionStorage.getItem("reloaded" + v)) {
@@ -126,12 +126,13 @@ fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? 
     <section class="card verdict" id="verdict" hidden></section>
     <section class="card plan" id="planCard" hidden>
       <div class="sec-head"><h2>事業計画書をつくる</h2><span class="sub">スマホ・PDF・Excel</span></div>
-      <p class="note">この売上予測と商圏調査の結果から、事業計画書（立地スコア・計画地の写真・初期投資・月間収支・10年収支計画・リスクと対策つき）をつくります。「スマホで見る」はその場で画面に出て、PDFにも保存できます。機械の台数や工事費などを細かく変えたいときは「Excelでつくる」を使ってください。Excelの黄色の欄を変えると、全部のページが計算し直されます。</p>
+      <p class="note">この売上予測と商圏調査の結果から、事業計画書（立地スコア・計画地の写真・初期投資・月間収支・10年収支計画・リスクと対策つき）をつくります。「事業計画書をつくる（HTML）」はランドリープレスの出店計画書のデザインで開きます（パソコンなら印刷からPDFに、スマホは「HTMLで保存」）。「スマホで見る」はその場で画面に出て、PDFにも保存できます。機械の台数や工事費などを細かく変えたいときは「Excelでつくる」を使ってください。Excelの黄色の欄を変えると、全部のページが計算し直されます。</p>
       <div class="plan-fields" id="planFields"></div>
       <div class="score-box"><div class="score-head"><h4>立地スコア</h4><b id="scoreTotal"></b></div>
         <p class="note">わかる項目はお店の条件から自動で選んでいます。現地の様子に合わせて直してください（売上予測には使いません）。</p>
         <div id="scoreBody"></div></div>
       <div class="plan-btns">
+        <button type="button" class="btn" id="planHtmlBtn">事業計画書をつくる（HTML）</button>
         <button type="button" class="btn" id="planViewBtn">スマホで見る（PDF保存も）</button>
         <button type="button" class="btn ghost" id="planBtn">Excelでつくる</button>
       </div>
@@ -161,6 +162,6 @@ fetch("version.txt?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? 
 </main>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=43"></script>
+<script src="app.js?v=44"></script>
 </body>
 </html>
