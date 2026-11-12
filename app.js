@@ -95,9 +95,11 @@
       { label: "1km以内の他社", value: `${c1}店`, pos: c1 > REF.comp1 ? 1 : 0,
         high: "直営店のどの店より多めです" },
       // マンションが多い地域（1km以内の単身世帯が5割以上）は1段階上げる（2026-11-08 直営店14店の答え合わせから）
+      // ただし500m以内に競合店があるときは上げない（2026-11-12 Yuta決定。競合ありの店が高めに出ていたため）
       { label: "1km以内の単身世帯の割合", value: `${Math.round(s1.single / Math.max(1, s1.hh) * 100)}%`, pos: 0, extra: true,
-        up: s1.single / Math.max(1, s1.hh) >= APT_RATIO,
-        upText: "マンションが多い地域なので、基準を1段階上げました", keepText: "5割未満（一軒家が多め）なので、基準はそのまま" },
+        up: s1.single / Math.max(1, s1.hh) >= APT_RATIO && S.rival !== 1,
+        upText: "マンションが多い地域なので、基準を1段階上げました",
+        keepText: s1.single / Math.max(1, s1.hh) >= APT_RATIO ? "マンションが多い地域ですが、500m以内に競合店があるので基準はそのまま" : "5割未満（一軒家が多め）なので、基準はそのまま" },
       // 夜も人が来る立地は1段階上げる（2026-11-09 Yuta決定。参考チェックの「はい」）
       { label: "夜も人が来る立地", value: CHECK_OPTS[CK.night || 0], pos: 0, extra: true, up: CK.night === 1,
         upText: "夜も人が来る立地なので、基準を1段階上げました", keepText: "「はい」のときだけ1段階上げます（お店の条件の参考チェックで選べます）" },
