@@ -474,16 +474,16 @@
     box.hidden = !cur.shown; $("#planCard").hidden = !cur.shown;
     if (!cur.shown) { $("#pverdict").innerHTML = ""; return; }
     box.className = "card verdict " + cls;
-    box.innerHTML = `<div class="v-top"><div class="v-grade"><b>${g}</b><span>${gl}</span></div>
-      <button type="button" class="btn ghost" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button></div>
+    box.innerHTML = `<div class="v-head"><b class="v-ic">${g}</b><div><span>判定</span><strong>${gl}</strong></div></div>
       <div class="v-nums">
-        <div><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `基準（お店の条件 ±0点） ${bandTxt(e.band0)}`}</small></div>
-        <div><span class="label">来店客数の見込み</span><span class="value">${!e.lo ? "〜" + fmt(e.dayHi) : fmt(e.dayLo) + (e.dayHi ? "〜" + fmt(e.dayHi) : "")}</span><span class="unit">人／日${e.dayHi ? "" : "以上"}</span><small>客単価${fmt(P.price)}円で計算</small></div>
+        <div class="v-sales"><span class="label">月の売上の見込み</span><span class="value">${!e.lo ? "〜" + e.hi / 1e4 : e.lo / 1e4 + (e.hi ? "〜" + e.hi / 1e4 : "")}</span><span class="unit">万円${!e.lo ? "未満" : e.hi ? "" : "以上"}</span><small>${e.roadNG ? "幹線道路の必須条件がそろっていません" : `基準（お店の条件 ±0点） ${bandTxt(e.band0)}`}</small></div>
+        <div class="v-day"><span class="label">来店客数の見込み</span><span class="value">${!e.lo ? "〜" + fmt(e.dayHi) : fmt(e.dayLo) + (e.dayHi ? "〜" + fmt(e.dayHi) : "")}</span><span class="unit">人／日${e.dayHi ? "" : "以上"}</span><small>1日あたり（3年目）</small></div>
       </div>
       <p class="v-ramp">開業1年目はこの約${Math.round(REF.ramp[0] * 100)}%、2年目は約${Math.round(REF.ramp[1] * 100)}%が目安です（直営店の伸び方より）</p>
-      <ul class="v-cond"></ul>
+      <div class="v-why-box"><h3 class="v-h">判定の理由</h3><ul class="v-cond"></ul></div>
       <p class="v-spec">お店の条件 基準から<b>${signed(e.pt)}</b>点　${e.roadNG ? "→ 幹線道路沿いの必須条件がそろっていないため100万円未満にしました" : e.band > e.band0 ? "→ 売上の見込みを" + (e.band - e.band0) + "段階上げました" : e.band < e.band0 ? "→ 売上の見込みを" + (e.band0 - e.band) + "段階下げました" : "→ 売上の見込みはそのまま"}<small>上の「お店の条件」で変えられます</small></p>
-      <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレスの売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>`;
+      <p class="v-note">${e.base === 2 ? "世帯数が直営店より少ない、または直営店にない条件が重なっている場所です。現地の様子とあわせて慎重に判断してください。" : e.base === 1 ? "直営店にない条件が1つあるため、見込みより上下にずれやすい場所です。" : ""}この見込みは、ランドリープレスの売上実績をもとに算出しています（軌道に乗った3年目の目安）。</p>
+      <button type="button" class="btn ghost v-save" id="saveBtn">${isSaved() ? "保存済み ✓" : "この候補地を保存"}</button>`;
     const ul = box.querySelector(".v-cond");
     for (const c of e.cond) {
       const li = document.createElement("li"); li.className = c.extra ? (c.up ? "up" : "ok") : c.pos ? "ng" : "ok";

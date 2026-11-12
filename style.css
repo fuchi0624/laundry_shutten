@@ -556,3 +556,42 @@ body.pv-open{overflow:hidden}
 .pv-score li i{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--accent) var(--w),var(--line) var(--w))}
 .pv-score li em{font-style:normal;text-align:right;font-family:var(--f-num)}
 @media print{.pv-photos,.pv-score{break-inside:avoid}}
+
+/* ================================================================ 案A（2026-11-12）: 見やすさ重視に磨いた形 */
+.hero-in{padding-block:16px 58px;gap:8px}
+.hero .lead{font-size:.84rem;line-height:1.6}
+.verdict{border-top:0;gap:14px}
+.verdict.g0{--g:var(--accent);--g-soft:var(--accent-soft)}
+.v-head{display:flex;align-items:center;gap:12px}
+.v-ic{flex:none;display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:var(--g);color:#fff;font-size:1.6rem;line-height:1;box-shadow:0 4px 12px color-mix(in srgb,var(--g) 40%,transparent)}
+.v-head>div{display:grid;min-width:0}
+.v-head span{font-size:.76rem;color:var(--muted);font-weight:700}
+.v-head strong{font-family:var(--f-display);font-weight:800;font-size:1.18rem;line-height:1.35}
+.v-nums>div{padding:12px 14px;border-radius:14px}
+.v-nums .v-sales{background:#fff3e8}
+.v-nums .v-sales .value{color:#c4500f}
+.v-nums .v-day{background:var(--bg)}
+.v-nums .v-day .value{color:var(--fg)}
+.v-nums .unit{font-weight:700;color:var(--fg)}
+.v-ramp{background:var(--bg);color:var(--fg)}
+.v-why-box{display:grid;gap:2px;padding:4px 14px;border-radius:16px;border:1px solid var(--line)}
+.v-h{margin:10px 0 2px;font-size:.92rem;font-weight:900}
+.v-cond{gap:0}
+.v-cond li{background:none;border-radius:0;padding:10px 0;border-bottom:1px solid var(--line)}
+.v-cond li:last-child{border-bottom:0}
+.v-cond .mk{background:#e6f4ec;color:#1f7a4c}
+.v-cond li.up .mk{background:#fff0e3;color:#c4500f}
+.v-spec{background:var(--bg)}
+.v-spec b{color:var(--accent-deep)}
+.v-save{justify-self:center;padding:9px 18px;font-size:.84rem}
+.plan-btns #planHtmlBtn{min-height:56px;font-size:1.06rem;box-shadow:0 6px 18px rgba(226,98,27,.35)}
+@media (prefers-color-scheme:dark){
+  .v-nums .v-sales{background:var(--accent-soft)}
+  .v-nums .v-sales .value{color:var(--accent)}
+  .v-spec b{color:var(--accent)}
+  .v-cond .mk{background:#183326;color:#5cc48a}
+  .v-cond li.up .mk{background:#3d2414;color:#ff8640}}
+@media print{.v-save{display:none}}
+.v-head strong{font-size:clamp(1rem,4.6vw,1.18rem)}
+.v-nums .value{font-size:clamp(1.3rem,6.6vw,2rem)}
+.v-nums>div{padding:12px}
