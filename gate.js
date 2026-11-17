@@ -1,4 +1,4 @@
-// 合言葉で中身を開く（中身は暗号化してあり、合言葉がないと読めません）
+// パスワードで中身を開く（中身は暗号化してあり、パスワードがないと読めません）
 (function () {
   "use strict";
   var me = document.currentScript, B = me.getAttribute("data-b"), KS = "sn_k";
@@ -42,8 +42,8 @@
       "#snLock button:disabled{opacity:.6}#snLock .err{color:#d0453a;min-height:1.2em}";
     document.head.appendChild(st);
     var w = document.createElement("div"); w.id = "snLock";
-    w.innerHTML = '<form><img src="apple-touch-icon.png?v=10" alt=""><h1>ランドリースポットナビ</h1><p>合言葉を入れてください</p>' +
-      '<input type="password" autocomplete="current-password" aria-label="合言葉"><button type="submit">ひらく</button><p class="err" aria-live="polite"></p></form>';
+    w.innerHTML = '<form><img src="apple-touch-icon.png?v=10" alt=""><h1>ランドリースポットナビ</h1><p>パスワードを入れてください</p>' +
+      '<input type="password" autocomplete="current-password" aria-label="パスワード"><button type="submit">ひらく</button><p class="err" aria-live="polite"></p></form>';
     document.body.appendChild(w);
     var f = w.querySelector("form"), i = w.querySelector("input"), e = w.querySelector(".err"), btn = w.querySelector("button");
     if (msg) e.textContent = msg;
@@ -55,7 +55,7 @@
         run(d);
       }).catch(function (x) {
         btn.disabled = false;
-        e.textContent = x && x.message === "load" ? "読み込めませんでした。電波のよい所でもう一度お試しください" : "合言葉がちがいます";
+        e.textContent = x && x.message === "load" ? "読み込めませんでした。電波のよい所でもう一度お試しください" : "パスワードがちがいます";
         i.select();
       });
     });
