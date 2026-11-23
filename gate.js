@@ -42,7 +42,7 @@
       "#snLock button:disabled{opacity:.6}#snLock .err{color:#d0453a;min-height:1.2em}";
     document.head.appendChild(st);
     var w = document.createElement("div"); w.id = "snLock";
-    w.innerHTML = '<form><img src="apple-touch-icon.png?v=10" alt=""><h1>ランドリースポットナビ</h1><p>パスワードを入れてください</p>' +
+    w.innerHTML = '<form><img src="apple-touch-icon.png?v=10" alt=""><h1>' + (/keikaku/.test(B) ? "出店計画書" : "ランドリースポットナビ") + '</h1><p>パスワードを入れてください</p>' +
       '<input type="password" autocomplete="current-password" aria-label="パスワード"><button type="submit">ひらく</button><p class="err" aria-live="polite"></p></form>';
     document.body.appendChild(w);
     var f = w.querySelector("form"), i = w.querySelector("input"), e = w.querySelector(".err"), btn = w.querySelector("button");
